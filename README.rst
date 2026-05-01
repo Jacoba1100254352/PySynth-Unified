@@ -53,20 +53,26 @@ Features
 Installation
 ------------
 
-The fastest install is one command from this GitHub fork:
+For a command-line install on macOS/Homebrew Python, use ``pipx``. It creates
+an isolated environment and avoids Python's ``externally-managed-environment``
+error:
 
 .. code-block:: console
 
-    $ python3 -m pip install "git+https://github.com/Jacoba1100254352/PySynth-Unified.git"
+    $ brew install pipx
+    $ pipx ensurepath
+    $ pipx install "git+https://github.com/Jacoba1100254352/PySynth-Unified.git"
 
 If you prefer the clone-and-install style used by older PySynth instructions,
-use ``make install`` from the repo root:
+use ``make install`` from the repo root. This installs into a local ``.venv``
+so it also avoids system Python restrictions:
 
 .. code-block:: console
 
     $ git clone https://github.com/Jacoba1100254352/PySynth-Unified.git
     $ cd PySynth-Unified
     $ make install
+    $ .venv/bin/pysynth list-sounds
 
 For isolated local development, clone the repo and install it into a virtual
 environment instead:
@@ -80,9 +86,10 @@ environment instead:
     $ python -m pip install -U pip
     $ python -m pip install .
 
-This repo intentionally uses ``python -m pip install .`` and ``make install``
-instead of the older ``python3 setup.py install`` pattern so dependencies and
-console scripts are installed through Python's supported packaging path.
+If you are already inside an activated virtual environment, ``make
+install-active`` installs into that environment. This repo intentionally avoids
+the older ``python3 setup.py install`` pattern so dependencies and console
+scripts are installed through Python's supported packaging path.
 
 After installation, verify the command-line entrypoint:
 

@@ -2,6 +2,9 @@
 .DEFAULT_GOAL := help
 PYTHON ?= python3
 PIP ?= $(PYTHON) -m pip
+VENV ?= .venv
+VENV_PYTHON := $(VENV)/bin/python
+VENV_PIP := $(VENV_PYTHON) -m pip
 
 define BROWSER_PYSCRIPT
 import os, webbrowser, sys
@@ -83,11 +86,22 @@ dist: clean ## builds source and wheel package
 	python setup.py bdist_wheel
 	ls -l dist
 
-install: ## install the package into the active Python environment
+$(VENV_PYTHON):
+	$(PYTHON) -m venv $(VENV)
+	$(VENV_PIP) install -U pip
+
+venv: $(VENV_PYTHON) ## create a local virtual environment
+
+install: venv ## install the package into a local .venv
+	$(VENV_PIP) install .
+	@echo "Installed. Run: $(VENV)/bin/pysynth list-sounds"
+
+install-active: ## install the package into the active Python environment
 	$(PIP) install .
 
 install-user: ## install the package into the user site-packages
 	$(PIP) install --user .
 
-install-editable: ## install the package in editable/development mode
-	$(PIP) install -e .
+install-editable: venv ## install the package in editable/development mode
+	$(VENV_PIP) install -e .
+	@echo "Installed editable. Run: $(VENV)/bin/pysynth list-sounds"
