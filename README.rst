@@ -50,6 +50,34 @@ Features
 * Uses configurable progress reporting that prints every note for small songs,
   throttles larger songs, and always prints the final ``[n/n]`` update.
 
+Installation
+------------
+
+Install directly from this GitHub fork:
+
+.. code-block:: console
+
+    $ python -m pip install "git+https://github.com/Jacoba1100254352/PySynth-Unified.git"
+
+For local development, clone the repo and install it into a virtual
+environment:
+
+.. code-block:: console
+
+    $ git clone https://github.com/Jacoba1100254352/PySynth-Unified.git
+    $ cd PySynth-Unified
+    $ python -m venv .venv
+    $ . .venv/bin/activate
+    $ python -m pip install -U pip
+    $ python -m pip install .
+
+After installation, verify the command-line entrypoint:
+
+.. code-block:: console
+
+    $ pysynth list-sounds
+    $ pysynth --demo anthem --output pysynth_anthem.wav
+
 PySynth
 -------
 
