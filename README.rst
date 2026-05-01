@@ -2,31 +2,13 @@
 PySynth Unified
 ===============
 
-.. image:: https://img.shields.io/pypi/v/tomita.svg
-        :target: https://pypi.python.org/pypi/tomita
-
-.. image:: https://img.shields.io/travis/python-g4brielvs/tomita.svg
-        :target: https://travis-ci.com/g4brielvs/python-tomita
-
-.. image:: https://pyup.io/repos/github/g4brielvs/python-tomita/shield.svg
-     :target: https://pyup.io/repos/github/g4brielvs/python-tomita
-     :alt: Updates
-
-.. image:: https://readthedocs.org/projects/tomita/badge/?version=latest
-        :target: https://tomita.readthedocs.io/en/latest/?badge=latest
-        :alt: Documentation Status
-
-.. image:: https://img.shields.io/pypi/l/Tomita.svg
-        :target: https://pypi.python.org/pypi/tomita/
-        :alt: License
-
 *PySynth Unified* is a command-line music and synthesizer package based on the
-maintained ``g4brielvs/python-tomita`` fork of PySynth. It keeps the Tomita
+maintained ``g4brielvs/PySynth`` fork of PySynth. It keeps the Tomita
 package namespace for compatibility and also exposes a ``pysynth`` command and
 Python facade.
 
 * Free software: GNU General Public License v3
-* Documentation: https://tomita.readthedocs.io.
+* Source repository: https://github.com/Jacoba1100254352/PySynth-Unified
 
 About
 -----
@@ -61,6 +43,21 @@ error:
 
     $ brew install pipx
     $ pipx ensurepath
+    $ export PATH="$HOME/.local/bin:$PATH"
+    $ pipx install "git+https://github.com/Jacoba1100254352/PySynth-Unified.git"
+    $ pysynth list-sounds
+
+``pipx ensurepath`` updates your shell startup files, but the change may not
+affect the terminal window you already have open. The ``export`` line above
+makes ``pysynth`` available immediately; opening a new terminal after
+``pipx ensurepath`` has the same effect.
+
+If you installed this repo before version ``0.3.0`` and pipx reported
+``installed package tomita 0.2.0``, replace that older pipx environment once:
+
+.. code-block:: console
+
+    $ pipx uninstall tomita
     $ pipx install "git+https://github.com/Jacoba1100254352/PySynth-Unified.git"
 
 If you prefer the clone-and-install style used by older PySynth instructions,

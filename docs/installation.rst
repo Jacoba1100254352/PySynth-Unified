@@ -1,51 +1,56 @@
-.. highlight:: shell
-
 ============
 Installation
 ============
 
+Command-line install
+--------------------
 
-Stable release
---------------
-
-To install *tomita*, run this command in your terminal:
+On macOS with Homebrew Python, install PySynth Unified with ``pipx``. This
+keeps the command-line app in its own virtual environment and avoids Python's
+``externally-managed-environment`` restriction:
 
 .. code-block:: console
 
-    $ pip install tomita
+    $ brew install pipx
+    $ pipx ensurepath
+    $ export PATH="$HOME/.local/bin:$PATH"
+    $ pipx install "git+https://github.com/Jacoba1100254352/PySynth-Unified.git"
+    $ pysynth list-sounds
 
-This is the preferred method to install *tomita*, as it will always install the most recent stable release.
+The ``export`` line only affects the terminal you already have open. Opening a
+new terminal after ``pipx ensurepath`` works too.
 
-If you don't have `pip`_ installed, this `Python installation guide`_ can guide
-you through the process.
+If you previously installed this repository while pipx reported
+``installed package tomita 0.2.0``, replace that older pipx environment once:
 
-.. _pip: https://pip.pypa.io
-.. _Python installation guide: http://docs.python-guide.org/en/latest/starting/installation/
+.. code-block:: console
+
+    $ pipx uninstall tomita
+    $ pipx install "git+https://github.com/Jacoba1100254352/PySynth-Unified.git"
 
 
 From sources
 ------------
 
-The sources for *tomita* can be downloaded from the `repo`_.
-
-You can either clone the public repository:
-
-.. code-block:: console
-
-    $ git clone https://github.com/g4brielvs/python-tomita.git
-
-Or download the `tarball`_:
+For the older clone-and-install workflow, use ``make install`` from the repo
+root. It creates a local ``.venv`` and installs the package there instead of
+writing into system Python:
 
 .. code-block:: console
 
-    $ curl -OJL https://github.com/g4brielvs/python-tomita/tarball/master
+    $ git clone https://github.com/Jacoba1100254352/PySynth-Unified.git
+    $ cd PySynth-Unified
+    $ make install
+    $ .venv/bin/pysynth list-sounds
 
-Once you have a copy of the source, you can install it with:
+For development, activate a virtual environment and install normally:
 
 .. code-block:: console
 
-    $ python setup.py install
+    $ python -m venv .venv
+    $ . .venv/bin/activate
+    $ python -m pip install -U pip
+    $ python -m pip install -e .
 
-
-.. _repo: https://github.com/g4brielvs/python-tomita
-.. _tarball: https://github.com/g4brielvs/tomita/tarball/master
+Avoid ``python setup.py install``; modern pip installs handle dependencies and
+console scripts more reliably.

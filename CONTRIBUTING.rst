@@ -15,7 +15,7 @@ Types of Contributions
 Report Bugs
 ~~~~~~~~~~~
 
-Report bugs at https://github.com/g4brielvs/python-tomita/issues.
+Report bugs at https://github.com/Jacoba1100254352/PySynth-Unified/issues.
 
 If you are reporting a bug, please include:
 
@@ -38,14 +38,14 @@ and "help wanted" is open to whoever wants to implement it.
 Write Documentation
 ~~~~~~~~~~~~~~~~~~~
 
-python-tomita could always use more documentation, whether as part of the
-official python-tomita docs, in docstrings, or even on the web in blog posts,
+PySynth Unified could always use more documentation, whether as part of the
+project docs, in docstrings, or even on the web in blog posts,
 articles, and such.
 
 Submit Feedback
 ~~~~~~~~~~~~~~~
 
-The best way to send feedback is to file an issue at https://github.com/g4brielvs/python-tomita/issues.
+The best way to send feedback is to file an issue at https://github.com/Jacoba1100254352/PySynth-Unified/issues.
 
 If you are proposing a feature:
 
@@ -57,18 +57,20 @@ If you are proposing a feature:
 Get Started!
 ------------
 
-Ready to contribute? Here's how to set up `tomita` for local development.
+Ready to contribute? Here's how to set up PySynth Unified for local development.
 
-1. Fork the `python-tomita` repo on GitHub.
+1. Fork the `PySynth-Unified` repo on GitHub.
 2. Clone your fork locally::
 
-    $ git clone git@github.com:your_name_here/python-tomita.git
+    $ git clone git@github.com:your_name_here/PySynth-Unified.git
 
-3. Install your local copy into a virtualenv. Assuming you have virtualenvwrapper installed, this is how you set up your fork for local development::
+3. Install your local copy into a virtual environment::
 
-    $ mkvirtualenv tomita
-    $ cd tomita/
-    $ python setup.py develop
+    $ cd PySynth-Unified/
+    $ python -m venv .venv
+    $ . .venv/bin/activate
+    $ python -m pip install -U pip
+    $ python -m pip install -e .[test]
 
 4. Create a branch for local development::
 
@@ -79,11 +81,11 @@ Ready to contribute? Here's how to set up `tomita` for local development.
 5. When you're done making changes, check that your changes pass flake8 and the
    tests, including testing other Python versions with tox::
 
-    $ flake8 tomita tests
-    $ python setup.py test or pytest
+    $ python -m pytest
     $ tox
 
-   To get flake8 and tox, just pip install them into your virtualenv.
+   Install tox into your virtual environment if you want to run the full
+   multi-version test matrix.
 
 6. Commit your changes and push your branch to GitHub::
 
@@ -102,16 +104,14 @@ Before you submit a pull request, check that it meets these guidelines:
 2. If the pull request adds functionality, the docs should be updated. Put
    your new functionality into a function with a docstring, and add the
    feature to the list in README.rst.
-3. The pull request should work for Python 3.5, 3.6, 3.7 and 3.8, and for PyPy. Check
-   https://travis-ci.com/g4brielvs/python-tomita/pull_requests
-   and make sure that the tests pass for all supported Python versions.
+3. The pull request should work for Python 3.9 and newer.
 
 Tips
 ----
 
 To run a subset of tests::
 
-$ pytest tests.test_tomita
+$ python -m pytest tests/test_tomita.py
 
 
 Deploying
@@ -125,4 +125,4 @@ $ bump2version patch # possible: major / minor / patch
 $ git push
 $ git push --tags
 
-Travis will then deploy to PyPI if tests pass.
+Push tags only when you are intentionally publishing a release.

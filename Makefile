@@ -92,7 +92,15 @@ $(VENV_PYTHON):
 
 venv: $(VENV_PYTHON) ## create a local virtual environment
 
-install: venv ## install the package into a local .venv
+clean-legacy-install: ## remove stale local metadata from pre-0.3 installs
+	rm -fr *.egg-info
+	rm -fr $(VENV)/lib/python*/site-packages/tomita
+	rm -fr $(VENV)/lib/python*/site-packages/pysynth
+	rm -fr $(VENV)/lib/python*/site-packages/tomita-*.dist-info
+	rm -f $(VENV)/lib/python*/site-packages/__editable__.tomita-*.pth
+	rm -f $(VENV)/lib/python*/site-packages/__editable___tomita_*_finder.py
+
+install: venv clean-legacy-install ## install the package into a local .venv
 	$(VENV_PIP) install .
 	@echo "Installed. Run: $(VENV)/bin/pysynth list-sounds"
 
@@ -102,6 +110,6 @@ install-active: ## install the package into the active Python environment
 install-user: ## install the package into the user site-packages
 	$(PIP) install --user .
 
-install-editable: venv ## install the package in editable/development mode
+install-editable: venv clean-legacy-install ## install the package in editable/development mode
 	$(VENV_PIP) install -e .
 	@echo "Installed editable. Run: $(VENV)/bin/pysynth list-sounds"

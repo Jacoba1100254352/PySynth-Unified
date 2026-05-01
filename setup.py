@@ -17,7 +17,7 @@ test_requirements = [
 ]
 
 setup(
-    author="g4brielvs",
+    author="g4brielvs and PySynth Unified contributors",
     author_email="tomita@g4brielvs.me",
     python_requires=">=3.9",
     classifiers=[
@@ -33,7 +33,7 @@ setup(
         "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: 3.14",
     ],
-    description="PySynth/Tomita is a music and synthesizer package",
+    description="Unified PySynth/Tomita command-line synthesizer",
     entry_points={
         "console_scripts": [
             "tomita=tomita.cli:main",
@@ -45,11 +45,16 @@ setup(
     long_description=readme + "\n\n" + history,
     long_description_content_type="text/x-rst",
     include_package_data=True,
-    keywords="pysynth tomita music synthesizer",
-    name="tomita",
+    keywords="pysynth tomita music synthesizer abc midi wav",
+    name="pysynth-unified",
     packages=find_packages(include=["tomita", "tomita.*", "pysynth", "pysynth.*"]),
     extras_require={"test": test_requirements},
-    url="https://github.com/g4brielvs/python-tomita",
-    version="0.2.0",
+    project_urls={
+        "Source": "https://github.com/Jacoba1100254352/PySynth-Unified",
+        "Maintained upstream": "https://github.com/g4brielvs/PySynth",
+        "Original PySynth": "https://github.com/mdoege/PySynth",
+    },
+    url="https://github.com/Jacoba1100254352/PySynth-Unified",
+    version="0.3.0",
     zip_safe=False,
 )

@@ -47,9 +47,9 @@ source_suffix = ".rst"
 master_doc = "index"
 
 # General information about the project.
-project = "tomita"
-copyright = "2020, g4brielvs"
-author = "g4brielvs"
+project = "PySynth Unified"
+copyright = "2026, PySynth Unified contributors"
+author = "PySynth Unified contributors"
 
 # The version info for the project you're documenting, acts as replacement
 # for |version| and |release|, also used in various other places throughout
@@ -91,12 +91,12 @@ html_theme = "alabaster"
 # documentation.
 #
 html_theme_options = {
-    "github_user": "g4brielvs",
-    "github_repo": "python-tomita",
+    "github_user": "Jacoba1100254352",
+    "github_repo": "PySynth-Unified",
     "github_banner": "true",
     "show_powered_by": "false",
     "github_type": "star",
-    "description": "A command-line music and synthesizer package",
+    "description": "A unified PySynth/Tomita command-line synthesizer",
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
