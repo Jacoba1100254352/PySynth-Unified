@@ -53,14 +53,23 @@ Features
 Installation
 ------------
 
-Install directly from this GitHub fork:
+The fastest install is one command from this GitHub fork:
 
 .. code-block:: console
 
-    $ python -m pip install "git+https://github.com/Jacoba1100254352/PySynth-Unified.git"
+    $ python3 -m pip install "git+https://github.com/Jacoba1100254352/PySynth-Unified.git"
 
-For local development, clone the repo and install it into a virtual
-environment:
+If you prefer the clone-and-install style used by older PySynth instructions,
+use ``make install`` from the repo root:
+
+.. code-block:: console
+
+    $ git clone https://github.com/Jacoba1100254352/PySynth-Unified.git
+    $ cd PySynth-Unified
+    $ make install
+
+For isolated local development, clone the repo and install it into a virtual
+environment instead:
 
 .. code-block:: console
 
@@ -70,6 +79,10 @@ environment:
     $ . .venv/bin/activate
     $ python -m pip install -U pip
     $ python -m pip install .
+
+This repo intentionally uses ``python -m pip install .`` and ``make install``
+instead of the older ``python3 setup.py install`` pattern so dependencies and
+console scripts are installed through Python's supported packaging path.
 
 After installation, verify the command-line entrypoint:
 

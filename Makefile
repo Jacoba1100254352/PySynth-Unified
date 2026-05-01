@@ -1,5 +1,7 @@
 .PHONY: clean clean-test clean-pyc clean-build docs help
 .DEFAULT_GOAL := help
+PYTHON ?= python3
+PIP ?= $(PYTHON) -m pip
 
 define BROWSER_PYSCRIPT
 import os, webbrowser, sys
@@ -81,5 +83,11 @@ dist: clean ## builds source and wheel package
 	python setup.py bdist_wheel
 	ls -l dist
 
-install: clean ## install the package to the active Python's site-packages
-	python setup.py install
+install: ## install the package into the active Python environment
+	$(PIP) install .
+
+install-user: ## install the package into the user site-packages
+	$(PIP) install --user .
+
+install-editable: ## install the package in editable/development mode
+	$(PIP) install -e .
