@@ -5,11 +5,10 @@ Parse a file in ABC music notation format and render with PySynth.
 
 Usage:
 
-read_abc.py filename [num_song] [--syn_b/--syn_c/--syn_d/--syn_e/--syn_p/--syn_s/--syn_samp]
+read_abc.py filename [num_song] [--sound=a|b|c|d|e|p|s|samp|beeper] [--config=pysynth.json]
 
 * num_song selects the song in the file corresponding to the number given
-* --syn_b and --syn_s can be added to use the PySynth B or PySynth S
-    modules, respectively, instead of the default PySynth A
+* --sound can be added to select any bundled PySynth sound variant
 
 Some of the definitions are borrowed from PlayABC 1.1
 
@@ -17,32 +16,16 @@ Some of the definitions are borrowed from PlayABC 1.1
 """
 
 import sys
+from tomita.synth import config_from_args, get_synth_module
+
 if sys.version >= '3':
 	import urllib.request, urllib.error, urllib.parse
 else:
 	import urllib2
 
 sel = False
-try: num = int(sys.argv[2])
-except: num = 1
+num = 1
 song = []
-
-if "--syn_b" in sys.argv:
-	import pysynth_b as pysynth
-elif "--syn_s" in sys.argv:
-	import pysynth_s as pysynth
-elif "--syn_e" in sys.argv:
-	import pysynth_e as pysynth
-elif "--syn_c" in sys.argv:
-	import pysynth_c as pysynth
-elif "--syn_d" in sys.argv:
-	import pysynth_d as pysynth
-elif "--syn_p" in sys.argv:
-	import pysynth_p as pysynth
-elif "--syn_samp" in sys.argv:
-	import pysynth_samp as pysynth
-else:
-	import pysynth
 
 
 # flatten or sharpen notes according to key signature
@@ -268,74 +251,109 @@ def get_bpm(s, u = "1/4"):
 		c, d = a.split('/')
 		return int(b) * 4. * float(c) / float(d)
 
-fn = sys.argv[1]
-if fn[:5] == 'http:' or fn[:6] == 'https:':
-	if sys.version >= '3':
-		f = urllib.request.urlopen(fn).read().decode('utf-8').splitlines(keepends=True)
-	else:
-		f = urllib2.urlopen(fn)
-else:
-	f = open(fn)
+def _open_abc(fn):
+	if fn[:5] == 'http:' or fn[:6] == 'https:':
+		if sys.version >= '3':
+			return urllib.request.urlopen(fn).read().decode('utf-8').splitlines(keepends=True)
+		return urllib2.urlopen(fn)
+	return open(fn)
 
-bpm     = 120
-meter   = "4/4"
-triptab = None
-nunit   = "1/4"
-unit    = 4
 
-for l in f:
-	if not l or l[0] in ('w', 'W', '%'): continue
-	if 'X:' in l:
-		sn = int(l.split(':')[1])
-		if sn == num:
-			sel = True
-	if 'L:' in l and sel:
-		nunit = l.split(':')[1].strip()
-		unit = int(l.split('/')[1])
-	if 'M:' in l and sel:
-		meter = l.split(':')[1].strip()
-		if meter == 'C': meter = "4/4"
-	if 'Q:' in l and sel:
-		bpm = get_bpm(l.split(':')[1].strip(), nunit)
-	if 'K:' in l and sel:
-		key = l.split(':')[1].strip().replace('maj', '').replace('min', 'm')
-		global_sharps_flats = {}
-		fsnum = 0
-		for x, y, z in key_sigs:
-			if x.lower() == key.lower() or y.lower() == key.lower():
-				fsnum = z
-		if fsnum < 0:
-			fsrange = list(range(fsnum, 0))
-			sign = -1
-			piano = piano_f
-		else:
-			fsrange = list(range(1, fsnum + 1))
-			sign = 1
-			piano = piano_s
-		for fs in fsrange:
-			for oct in range(9):
-				global_sharps_flats['%s%u' % (flats_and_sharps[fs], oct)] = sign
-		#print global_sharps_flats
-		measure_sharps_flats = global_sharps_flats.copy()
-	if l.strip() == '' and sel:
-		break
-	if sel and not (l[0].isalpha() and l[1] == ':'):
-		if not triptab: triptab = mk_triptab(meter)
-		l2 = simp_line(list(l))
-		parse_line(l2)
+def abc_to_song(fn, num=1):
+	global sel, song, chord, tie_next, second_ver, do_repeat, only_first, triplet
+	global tripfac, triptab, unit, global_sharps_flats, measure_sharps_flats
+	global piano, key
 
-if do_repeat:
-	song = song + second_ver
+	sel = False
+	song = []
+	chord = False
+	tie_next = 0
+	second_ver, do_repeat, only_first, triplet = [], False, False, 0
+	tripfac = 1
+	bpm = 120
+	meter = "4/4"
+	triptab = None
+	nunit = "1/4"
+	unit = 4
+	key = "C"
+	piano = piano_s
+	global_sharps_flats = {}
+	measure_sharps_flats = {}
 
-if not sel:
+	f = _open_abc(fn)
+	try:
+		for l in f:
+			if not l or l[0] in ('w', 'W', '%'): continue
+			if 'X:' in l:
+				sn = int(l.split(':')[1])
+				if sn == num:
+					sel = True
+			if 'L:' in l and sel:
+				nunit = l.split(':')[1].strip()
+				unit = int(l.split('/')[1])
+			if 'M:' in l and sel:
+				meter = l.split(':')[1].strip()
+				if meter == 'C': meter = "4/4"
+			if 'Q:' in l and sel:
+				bpm = get_bpm(l.split(':')[1].strip(), nunit)
+			if 'K:' in l and sel:
+				key = l.split(':')[1].strip().replace('maj', '').replace('min', 'm')
+				global_sharps_flats = {}
+				fsnum = 0
+				for x, y, z in key_sigs:
+					if x.lower() == key.lower() or y.lower() == key.lower():
+						fsnum = z
+				if fsnum < 0:
+					fsrange = list(range(fsnum, 0))
+					sign = -1
+					piano = piano_f
+				else:
+					fsrange = list(range(1, fsnum + 1))
+					sign = 1
+					piano = piano_s
+				for fs in fsrange:
+					for oct in range(9):
+						global_sharps_flats['%s%u' % (flats_and_sharps[fs], oct)] = sign
+				measure_sharps_flats = global_sharps_flats.copy()
+			if l.strip() == '' and sel:
+				break
+			if sel and not (l[0].isalpha() and l[1] == ':'):
+				if not triptab: triptab = mk_triptab(meter)
+				l2 = simp_line(list(l))
+				parse_line(l2)
+	finally:
+		if hasattr(f, "close"):
+			f.close()
+
+	if do_repeat:
+		song = song + second_ver
+	if not sel:
+		raise ValueError("song %u not found in file %s" % (num, fn))
+	return song, bpm, {"key": key, "unit": unit}
+
+
+def main(argv=None):
+	argv = list(sys.argv[1:] if argv is None else argv)
+	if not argv:
+		raise SystemExit("Usage: read_abc.py filename [num_song] [--sound=...] [--config=pysynth.json]")
+	fn = argv[0]
+	try:
+		num = int(argv[1]) if len(argv) > 1 and not argv[1].startswith("--") else 1
+	except ValueError:
+		num = 1
+	synth_config = config_from_args(["read_abc.py"] + argv)
+	parsed_song, bpm, meta = abc_to_song(fn, num)
+	print(meta["key"], meta["unit"])
+	print(parsed_song)
 	print()
-	print("*** Song %u not found in file %s!" % (num, fn))
-	print()
-else:
-	print(key, unit)
-	print(song)
-	print()
-	print(len(song))
+	print(len(parsed_song))
+	pysynth = get_synth_module(synth_config.sound)
+	options = {"bpm": bpm, "progress": synth_config.progress}
+	if synth_config.sample_path:
+		options["sample_path"] = synth_config.sample_path
+	pysynth.make_wav(parsed_song, **options)
 
-	pysynth.make_wav(song, bpm = bpm)
+
+if __name__ == "__main__":
+	main()
 

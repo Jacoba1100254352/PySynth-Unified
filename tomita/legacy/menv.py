@@ -5,15 +5,15 @@ Python Command Line Musical Interpreter for PySynth.
 Pranav Ravichandran (me@onloop.net)
 """
 
-import play_wav
-import pysynth, pysynth_b, pysynth_s
+from tomita.legacy import play_wav
+from tomita.synth import make_wav
 import wave
 import sys
 import os
 import string
 
 #Type 'help' to access.
-helpContent = "------------------------------\nPySynth musical note interpreter.\nUsage: <Duration><Note> <Duration2><Note2> .... <DurationN><NoteN>\nOptional arguments:\n\t--bpm=Beats per minute [Default:120]\n\t--repeat=Number of bars [Default:1]\n\t--sound=Instrument [a = Flute/Organ, b = piano, s = plucked string, Default = a]\n\t--save=filename (Filename to save the file to. Appends .wav to filename)\nSamples:\n8g 8g 8g 2eb 8r 8f 8f 8f 1d --sound=a\n4e4 4e4 4f4 4g4 4g4 4f4 4e4 4d4 4c4 4c4 4d4 4e4 4e4 4d4 2d4 4e4 4e4 4f4 4g4 4g4 4f4 4e4 4d4 4c4 4c4 4d4 4e4 4d4 4c4 2c4 --bpm=200 --repeat=1 --sound=s --save=Ode_to_Joy\nCommands: 'exit' and 'help'\n------------------------------"
+helpContent = "------------------------------\nPySynth musical note interpreter.\nUsage: <Duration><Note> <Duration2><Note2> .... <DurationN><NoteN>\nOptional arguments:\n\t--bpm=Beats per minute [Default:120]\n\t--repeat=Number of bars [Default:1]\n\t--sound=Instrument [a, b, c, d, e, p, s, samp, beeper; Default = a]\n\t--save=filename (Filename to save the file to. Appends .wav to filename)\nSamples:\n8g 8g 8g 2eb 8r 8f 8f 8f 1d --sound=a\n4e4 4e4 4f4 4g4 4g4 4f4 4e4 4d4 4c4 4c4 4d4 4e4 4e4 4d4 2d4 4e4 4e4 4f4 4g4 4g4 4f4 4e4 4d4 4c4 4c4 4d4 4e4 4d4 4c4 2c4 --bpm=200 --repeat=1 --sound=s --save=Ode_to_Joy\nCommands: 'exit' and 'help'\n------------------------------"
 
 usageHelp = "Notes are 'a' through 'g' of course,\noptionally with '#' or 'b' appended for sharps or flats.\nFinally the octave number (defaults to octave 4 if not given).\nAn asterisk at the end makes the note a little louder (useful for the beat).\n'r' is a rest.\n\nNote value is a number:\n1=Whole Note; 2=Half Note; 4=Quarter Note, etc.\nDotted notes can be written in two ways:\n1.33 = -2 = dotted half\n2.66 = -4 = dotted quarter\n5.33 = -8 = dotted eighth\n--------------------------------"
 
@@ -44,15 +44,7 @@ class mEnv:
 		self.parse(cliInput)
 
 		# Different cases of input, when optional argument 'sound' is given.
-		if self.instrument == 'a' or self.instrument == '':
-			self.synthSounds(pysynth, self.outFile)
-		elif self.instrument == 'b':
-			self.synthSounds(pysynth_b, self.outFile)
-		elif self.instrument == 's':
-			self.synthSounds(pysynth_s, self.outFile)
-		else:
-			print(invalidOption)
-			mEnv()
+		self.synthSounds(self.instrument or 'a', self.outFile)
 
 	def parse(self, cliInput):
 		''' Parse command line input.'''
@@ -133,23 +125,20 @@ class mEnv:
 		if self.trashFile:
 			os.remove(outFile)
 
-	def synthSounds(self, renderSound, outFile):
-		''' Render sound with pysynth_a, pysynth_b or pysynth_s based on user preference.'''
+	def synthSounds(self, sound, outFile):
+		''' Render sound with the selected PySynth variant.'''
 
 		if outFile == '':
 			outFile = 'temp.wav'
 
 		try:
-			# Different cases of input, when optional arguments 'bpm' and 'repeat' are given.
-			if self.bpmVal and self.repeatVal:
-				renderSound.make_wav(self.synthParam, fn = outFile, silent = True, bpm = self.bpmVal, repeat = self.repeatVal)
-			elif self.bpmVal:
-				renderSound.make_wav(self.synthParam, fn = outFile, silent = True, bpm = self.bpmVal)
-			elif self.repeatVal:
-				renderSound.make_wav(self.synthParam, fn = outFile, silent = True, repeat = self.repeatVal)
-			else:
-				renderSound.make_wav(self.synthParam, fn = outFile, silent = True)
-		except KeyError:
+			options = {'fn': outFile, 'silent': True, 'sound': sound}
+			if self.bpmVal:
+				options['bpm'] = self.bpmVal
+			if self.repeatVal:
+				options['repeat'] = self.repeatVal
+			make_wav(self.synthParam, **options)
+		except (KeyError, ValueError):
 			print(warningStr)
 			mEnv()
 

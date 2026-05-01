@@ -30,6 +30,7 @@
 
 from __future__ import division
 
+import os
 import wave, struct
 import numpy as np
 from math import sin, cos, pi, log, exp
@@ -37,6 +38,7 @@ from math import sin, cos, pi, log, exp
 from tomita.legacy.demosongs import *
 from tomita.legacy.mixfiles import mix_files
 from tomita.legacy.mkfreq import getfreq, getfn
+from tomita.progress import ProgressReporter
 
 pitchhz, keynum = getfreq()
 
@@ -81,7 +83,17 @@ def make_wav(
     repeat=0,
     fn="out.wav",
     silent=False,
+    progress=None,
+    sample_path=None,
 ):
+    sample_dir = sample_path or os.environ.get("PYSYNTH_SAMPLE_PATH") or patchpath
+    if not os.path.isdir(sample_dir):
+        raise ValueError(
+            "PySynth samp requires Salamander 48 kHz piano samples. "
+            "Set sample_path in pysynth.json, pass --sample-path, or set "
+            "PYSYNTH_SAMPLE_PATH to the directory containing files like A0v10.wav."
+        )
+
     f = wave.open(fn, "w")
 
     f.setnchannels(1)
@@ -105,7 +117,13 @@ def make_wav(
     def render2(a, b, vol, pos, knum, note):
         snd_len = int(b)
 
-        wf = wave.open(patchpath + fnames[knum][0], "rb")
+        sample_file = os.path.join(sample_dir, fnames[knum][0])
+        if not os.path.exists(sample_file):
+            raise ValueError(
+                "missing sample file %s; check the configured PySynth sample path"
+                % sample_file
+            )
+        wf = wave.open(sample_file, "rb")
         wl = wf.getnframes()
         wd = wf.readframes(wl)
         new = np.zeros(wl // 6)
@@ -151,10 +169,12 @@ def make_wav(
             y += "4"
     data = np.zeros(int((repeat + 1) * t_len + 480000))
 
+    progress_reporter = ProgressReporter(fn, progress, silent)
+    progress_reporter.start()
+    total_steps = len(song) * (repeat + 1)
     for rp in range(repeat + 1):
         for nn, x in enumerate(song):
-            if not nn % 4 and silent == False:
-                print("[%u/%u]\t" % (nn + 1, len(song)))
+            progress_reporter.step(rp * len(song) + nn + 1, total_steps)
             if x[0] != "r":
                 if x[0][-1] == "*":
                     vol = boost
@@ -182,16 +202,13 @@ def make_wav(
     ##########################################################################
     # Write to output file (in WAV format)
     ##########################################################################
-    if silent == False:
-        print("Writing to file", fn)
-
     data = data / (data.max() * 2.0)
     out_len = int(2.0 * 48000.0 + ex_pos + 0.5)
     data2 = np.zeros(out_len, np.short)
     data2[:] = 32000.0 * data[:out_len]
-    f.writeframes(data2.tostring())
+    f.writeframes(data2.tobytes())
     f.close()
-    print()
+    progress_reporter.finish()
 
 
 ##########################################################################

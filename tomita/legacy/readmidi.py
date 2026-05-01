@@ -4,7 +4,7 @@
 
 # Usage:
 
-# python readmidi.py file.mid [tracknum] [file.wav]  [--syn_b/--syn_c/--syn_d/--syn_e/--syn_p/--syn_s/--syn_samp]
+# python readmidi.py file.mid [tracknum] [file.wav] [--sound=a|b|c|d|e|p|s|samp|beeper] [--config=pysynth.json]
 
 # Based on code from https://github.com/osakared/midifile.py
 # which appears to be based on
@@ -39,6 +39,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
 import struct
+
+from tomita.synth import config_from_args, get_synth_module
 
 
 class Note(object):
@@ -190,23 +192,22 @@ def getdur(a, b):
     return 4 / (b - a)
 
 
-if __name__ == "__main__":
-    import sys
+def midi_to_song(file_name, tracknum=None, verbose=False):
+    m = MidiFile(file_name)
+    if tracknum is None:
+        tracknum = next((idx for idx, track in enumerate(m.tracks) if track), None)
+        if tracknum is None:
+            raise ValueError("no note tracks found in %s" % file_name)
+    if tracknum < 0 or tracknum >= len(m.tracks):
+        raise ValueError("track %u not found; file has %u tracks" % (tracknum, len(m.tracks)))
 
-    m = MidiFile(sys.argv[1])
-    if len(sys.argv) > 2:
-        tracknum = int(sys.argv[2])
-    else:
-        tracknum = 1
-    if len(sys.argv) > 3:
-        filename = sys.argv[3]
-    else:
-        filename = "midi.wav"
-    print()
-    print("Track first notes")
-    for t, n in enumerate(m.tracks):
-        if len(n) > 0:
-            print(t, n[0], len(n))
+    if verbose:
+        print()
+        print("Track first notes")
+        for t, n in enumerate(m.tracks):
+            if len(n) > 0:
+                print(t, n[0], len(n))
+
     song = []
     notes = {}
 
@@ -223,21 +224,24 @@ if __name__ == "__main__":
         return t
 
     for n in m.tracks[tracknum]:
-        print(n)
+        if verbose:
+            print(n)
         nn = str(n).split()
         start, stop = float(nn[2]), float(nn[3])
 
         if start != stop:  # note ends because of NOTE OFF event
             if start - gettotal() > 0:
                 song.append(("r", getdur(gettotal(), start)))
-                print("r1")
+                if verbose:
+                    print("r1")
             song.append((nn[0].lower(), getdur(start, stop)))
         elif (
             float(nn[1]) == 0 and notes.get(nn[0].lower(), -1) >= 0
         ):  # note ends because of NOTE ON with velocity = 0
             if notes[nn[0].lower()] - gettotal() > 0:
                 song.append(("r", getdur(gettotal(), notes[nn[0].lower()])))
-                print("r2")
+                if verbose:
+                    print("r2")
             song.append((nn[0].lower(), getdur(notes[nn[0].lower()], start)))
             notes[nn[0].lower()] = -1
         elif (
@@ -250,25 +254,38 @@ if __name__ == "__main__":
                 notes[old] = -1
             elif start - gettotal() > 0:
                 song.append(("r", getdur(gettotal(), start)))
-                print("r3")
+                if verbose:
+                    print("r3")
             notes[nn[0].lower()] = start
-    print()
-    print("Song")
-    print(song)
-    if "--syn_b" in sys.argv:
-        import pysynth_b as pysynth
-    elif "--syn_s" in sys.argv:
-        import pysynth_s as pysynth
-    elif "--syn_e" in sys.argv:
-        import pysynth_e as pysynth
-    elif "--syn_c" in sys.argv:
-        import pysynth_c as pysynth
-    elif "--syn_d" in sys.argv:
-        import pysynth_d as pysynth
-    elif "--syn_p" in sys.argv:
-        import pysynth_p as pysynth
-    elif "--syn_samp" in sys.argv:
-        import pysynth_samp as pysynth
+    if verbose:
+        print()
+        print("Song")
+        print(song)
+    return song, m.tempo
+
+
+def main(argv=None):
+    import sys
+
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if not argv:
+        raise SystemExit("Usage: readmidi.py file.mid [tracknum] [file.wav] [--sound=...] [--config=pysynth.json]")
+    synth_config = config_from_args(["readmidi.py"] + argv)
+    if len(argv) > 1 and not argv[1].startswith("--"):
+        tracknum = int(argv[1])
     else:
-        import pysynth
-    pysynth.make_wav(song, fn=filename, bpm=m.tempo)
+        tracknum = 1
+    if len(argv) > 2 and not argv[2].startswith("--"):
+        filename = argv[2]
+    else:
+        filename = "midi.wav"
+    song, tempo = midi_to_song(argv[0], tracknum=tracknum, verbose=True)
+    pysynth = get_synth_module(synth_config.sound)
+    options = {"fn": filename, "bpm": tempo, "progress": synth_config.progress}
+    if synth_config.sample_path:
+        options["sample_path"] = synth_config.sample_path
+    pysynth.make_wav(song, **options)
+
+
+if __name__ == "__main__":
+    main()

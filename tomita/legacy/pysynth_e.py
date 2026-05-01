@@ -37,6 +37,7 @@ from math import sin, cos, pi, log, exp
 from tomita.legacy.demosongs import *
 from tomita.legacy.mixfiles import mix_files
 from tomita.legacy.mkfreq import getfreq
+from tomita.progress import ProgressReporter
 
 pitchhz, keynum = getfreq()
 
@@ -133,6 +134,7 @@ def make_wav(
     repeat=0,
     fn="out.wav",
     silent=False,
+    progress=None,
 ):
     data = []
     note_cache = {}
@@ -251,10 +253,12 @@ def make_wav(
     data = np.zeros(int((repeat + 1) * t_len + 441000))
     # print len(data)/44100., "s allocated"
 
+    progress_reporter = ProgressReporter(fn, progress, silent)
+    progress_reporter.start()
+    total_steps = len(song) * (repeat + 1)
     for rp in range(repeat + 1):
         for nn, x in enumerate(song):
-            if not nn % 4 and silent == False:
-                print("[%u/%u]\t" % (nn + 1, len(song)))
+            progress_reporter.step(rp * len(song) + nn + 1, total_steps)
             if x[0] != "r":
                 if x[0][-1] == "*":
                     vol = boost
@@ -282,16 +286,13 @@ def make_wav(
     ##########################################################################
     # Write to output file (in WAV format)
     ##########################################################################
-    if silent == False:
-        print("Writing to file", fn)
-
     data = data / (data.max() * 2.0)
     out_len = int(2.0 * 44100.0 + ex_pos + 0.5)
     data2 = np.zeros(out_len, np.short)
     data2[:] = 32000.0 * data[:out_len]
-    f.writeframes(data2.tostring())
+    f.writeframes(data2.tobytes())
     f.close()
-    print()
+    progress_reporter.finish()
 
 
 ##########################################################################

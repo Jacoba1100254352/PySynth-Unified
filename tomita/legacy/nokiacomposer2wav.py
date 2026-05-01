@@ -1,13 +1,13 @@
 import logging
 import re
 
-import pysynth_beeper
+from tomita.legacy import pysynth_beeper
 
 LOG = logging.getLogger("nokiacomposer2wav")
 
 def parse_ringtone(tune_str):
     tune = []
-    pattern = "([0-9]+)(\.?)(#?)([\w-])([0-9]?)"
+    pattern = r"([0-9]+)(\.?)(#?)([\w-])([0-9]?)"
     for duration, dotted, sharp, pitch, octave  in re.findall(pattern, tune_str):
         if pitch == "-":
             pitch = "r"

@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+.DS_Store
 
 # C extensions
 *.so
@@ -103,3 +104,4 @@ ENV/
 
 # IDE settings
 .vscode/
+.idea/

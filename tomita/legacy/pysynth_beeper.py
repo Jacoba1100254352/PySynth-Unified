@@ -3,6 +3,8 @@ import math
 import struct 
 import wave
 
+from tomita.progress import ProgressReporter
+
 LOG = logging.getLogger("pysynth_beeper")
 SAMPLING_RATE = 44100
 
@@ -14,7 +16,7 @@ for k in range(88):
     note = '%s%u' % (keys_s[k % 12], oct)
     PITCHHZ[note] = freq
 
-def make_wav(song, tempo=120, transpose=0, fn="out.wav"):
+def make_wav(song, tempo=120, transpose=0, fn="out.wav", silent=False, progress=None):
     f = wave.open(fn, 'w')
 
     f.setnchannels(1)
@@ -97,7 +99,12 @@ def make_wav(song, tempo=120, transpose=0, fn="out.wav"):
     def silence(duration, sink):
         sink.writeframesraw(sixteenbit(0) * int(duration))
 
-    for note_pitch, note_duration in song:
+    progress_reporter = ProgressReporter(fn, progress, silent)
+    progress_reporter.start()
+    total_steps = len(song)
+
+    for nn, (note_pitch, note_duration) in enumerate(song):
+        progress_reporter.step(nn + 1, total_steps)
         # note_duration is 1, 2, 4, 8, ... and actually means 1, 1/2, 1/4, ...
         duration = int(full_note_in_samples / note_duration) 
         
@@ -111,3 +118,4 @@ def make_wav(song, tempo=120, transpose=0, fn="out.wav"):
             beep(freq, duration, f)
 
     f.close()
+    progress_reporter.finish()

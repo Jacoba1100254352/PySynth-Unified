@@ -1,0 +1,10 @@
+{
+  "sound": "b",
+  "progress": {
+    "enabled": true,
+    "small_threshold": 12,
+    "max_updates": 6,
+    "show_time": false
+  },
+  "sample_path": "/path/to/48khz24bit"
+}
