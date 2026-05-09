@@ -13,6 +13,7 @@ with open("HISTORY.rst") as history_file:
 requirements = ["click>=8.0", "numpy>=1.21"]
 
 test_requirements = [
+    "coverage>=7",
     "pytest>=7",
 ]
 

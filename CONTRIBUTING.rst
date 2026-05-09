@@ -67,10 +67,8 @@ Ready to contribute? Here's how to set up PySynth Unified for local development.
 3. Install your local copy into a virtual environment::
 
     $ cd PySynth-Unified/
-    $ python -m venv .venv
+    $ make install-editable
     $ . .venv/bin/activate
-    $ python -m pip install -U pip
-    $ python -m pip install -e .[test]
 
 4. Create a branch for local development::
 

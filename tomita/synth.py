@@ -187,6 +187,7 @@ def make_wav(song, config=None, sound=None, progress=None, **kwargs):
     config = config or SynthConfig.from_defaults()
     sound = normalize_sound(sound or config.sound)
     progress = config.progress if progress is None else ProgressConfig.from_value(progress)
+    sample_path = kwargs.pop("sample_path", None)
 
     module = get_synth_module(sound)
     kwargs.setdefault("progress", progress)
@@ -200,8 +201,8 @@ def make_wav(song, config=None, sound=None, progress=None, **kwargs):
         kwargs.pop("leg_stac", None)
         if repeat:
             song = list(song) * (repeat + 1)
-    elif sound == "samp" and config.sample_path:
-        kwargs.setdefault("sample_path", config.sample_path)
+    elif sound == "samp" and (sample_path or config.sample_path):
+        kwargs.setdefault("sample_path", sample_path or config.sample_path)
 
     return module.make_wav(song, **kwargs)
 

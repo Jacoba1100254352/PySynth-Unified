@@ -62,7 +62,7 @@ test-all: ## run tests on every Python version with tox
 	tox
 
 coverage: ## check code coverage quickly with the default Python
-	coverage run --source tomita -m pytest
+	coverage run --source tomita,pysynth -m pytest
 	coverage report -m
 	coverage html
 	$(BROWSER) htmlcov/index.html
@@ -99,6 +99,7 @@ clean-legacy-install: ## remove stale local metadata from pre-0.3 installs
 	rm -fr $(VENV)/lib/python*/site-packages/tomita-*.dist-info
 	rm -f $(VENV)/lib/python*/site-packages/__editable__.tomita-*.pth
 	rm -f $(VENV)/lib/python*/site-packages/__editable___tomita_*_finder.py
+	rm -f $(VENV)/lib/python*/site-packages/pysynth_unified_editable.pth
 
 install: venv clean-legacy-install ## install the package into a local .venv
 	$(VENV_PIP) install .
@@ -111,5 +112,6 @@ install-user: ## install the package into the user site-packages
 	$(PIP) install --user .
 
 install-editable: venv clean-legacy-install ## install the package in editable/development mode
-	$(VENV_PIP) install -e .
+	$(VENV_PIP) install -e '.[test]'
+	site="$$( $(VENV_PYTHON) -c 'import site; print(site.getsitepackages()[0])' )" && printf '%s\n' '$(CURDIR)' > "$$site/pysynth_unified_editable.pth"
 	@echo "Installed editable. Run: $(VENV)/bin/pysynth list-sounds"
