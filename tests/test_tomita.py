@@ -1,10 +1,8 @@
 """Tests for the unified PySynth/Tomita package."""
 
 import json
-import subprocess
-import sys
 import wave
-from pathlib import Path
+from importlib.metadata import metadata
 from types import SimpleNamespace
 
 import pytest
@@ -50,21 +48,13 @@ def _single_note_track(note_off_event=b"\x80\x3c\x40"):
 
 
 def test_package_metadata_matches_public_fork():
-    repo_root = Path(__file__).resolve().parents[1]
+    package_metadata = metadata("pysynth-unified")
 
-    result = subprocess.run(
-        [sys.executable, "setup.py", "--name", "--version", "--url"],
-        cwd=str(repo_root),
-        check=True,
-        capture_output=True,
-        text=True,
+    assert package_metadata["Name"] == "pysynth-unified"
+    assert package_metadata["Version"] == tomita.__version__
+    assert package_metadata["Home-page"] == (
+        "https://github.com/Jacoba1100254352/PySynth-Unified"
     )
-
-    assert result.stdout.splitlines() == [
-        "pysynth-unified",
-        tomita.__version__,
-        "https://github.com/Jacoba1100254352/PySynth-Unified",
-    ]
 
 
 def test_progress_reports_every_note_for_short_songs():
