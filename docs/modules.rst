@@ -1,7 +1,8 @@
-tomita
-======
+API reference
+=============
 
 .. toctree::
    :maxdepth: 4
 
-   tomita
+   api
+   legacy

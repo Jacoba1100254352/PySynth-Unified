@@ -29,6 +29,24 @@ If you previously installed this repository while pipx reported
     $ pipx install "git+https://github.com/Jacoba1100254352/PySynth-Unified.git"
 
 
+Python projects and VS Code
+---------------------------
+
+``pipx`` is intended for the command-line app. For code that imports
+``pysynth``, create a virtual environment inside the project and install the
+package there:
+
+.. code-block:: console
+
+    $ python3 -m venv .venv
+    $ . .venv/bin/activate
+    $ python -m pip install -U pip
+    $ python -m pip install "git+https://github.com/Jacoba1100254352/PySynth-Unified.git"
+
+Configure the editor to use that ``.venv`` interpreter. This keeps imports,
+the terminal command, and the editor on the same installation.
+
+
 From sources
 ------------
 

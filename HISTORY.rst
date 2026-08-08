@@ -2,6 +2,14 @@
 History
 =======
 
+Unreleased
+----------
+
+* Validate songs and configuration before rendering, with clear CLI errors.
+* Route the legacy ABC and MIDI helpers through the unified renderer.
+* Harden MIDI parsing and keep ``--quiet`` output quiet for metadata events.
+* Add maintained API documentation, package checks, and multi-version CI.
+
 0.3.0 (2026-05-01)
 ------------------
 

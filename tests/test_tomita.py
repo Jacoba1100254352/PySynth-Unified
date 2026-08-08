@@ -5,6 +5,7 @@ import subprocess
 import sys
 import wave
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from click.testing import CliRunner
@@ -12,7 +13,10 @@ from click.testing import CliRunner
 import pysynth
 import pysynth.cli as pysynth_cli
 import tomita
+import tomita.synth as synth_module
 from tomita import cli
+from tomita.legacy import read_abc as legacy_read_abc
+from tomita.legacy import readmidi as legacy_readmidi
 from tomita.legacy.read_abc import abc_to_song
 from tomita.legacy.readmidi import midi_to_song
 from tomita.progress import ProgressConfig, ProgressReporter, format_duration
@@ -101,6 +105,23 @@ def test_progress_rejects_invalid_values(value, message):
         ProgressConfig.from_value(value)
 
 
+@pytest.mark.parametrize(
+    "value,message",
+    [
+        ({"enabled": "false"}, "enabled must be true or false"),
+        ({"show_time": 1}, "show_time must be true or false"),
+        ({"every": 2, "percent": 50}, "cannot both be set"),
+        ({"percent": 101}, "at most 100"),
+        ({"max_updates": 0}, "must be at least 1"),
+        ({"small_threshold": -1}, "cannot be negative"),
+        ({"typo": 1}, "unknown progress option"),
+    ],
+)
+def test_progress_rejects_ambiguous_or_mistyped_config(value, message):
+    with pytest.raises(ValueError, match=message):
+        ProgressConfig.from_value(value)
+
+
 def test_progress_from_value_accepts_common_shortcuts():
     every = ProgressConfig.from_value(2)
     percent = ProgressConfig.from_value(25.0)
@@ -167,6 +188,19 @@ def test_parse_song_rejects_invalid_tokens():
         parse_song("quarter-note")
 
 
+@pytest.mark.parametrize(
+    "text,message",
+    [
+        ("", "at least one note"),
+        ("0c4", "duration must be non-zero"),
+        ("4r#", "invalid note token"),
+    ],
+)
+def test_parse_song_rejects_empty_or_invalid_values(text, message):
+    with pytest.raises(ValueError, match=message):
+        parse_song(text)
+
+
 def test_progress_cli_options_override_config_cadence():
     base = ProgressConfig(every=2)
     progress = progress_from_options(base, percent=25)
@@ -193,6 +227,7 @@ def test_sound_aliases_descriptions_and_public_facades():
     assert "piano" in sound_description("b")
     assert pysynth.available_sounds() == available_sounds()
     assert pysynth.SynthConfig(sound="piano").sound == "b"
+    assert pysynth.__version__ == tomita.__version__
 
 
 def test_legacy_sound_flags_use_unified_config():
@@ -336,6 +371,51 @@ def test_beeper_sound_renders_with_bpm_and_repeat(tmp_path):
         assert wav.getnframes() > 0
 
 
+def test_beeper_normalizes_flats_dotted_values_and_repeats(monkeypatch):
+    captured = {}
+
+    def fake_make_wav(song, **kwargs):
+        captured["song"] = song
+        captured["kwargs"] = kwargs
+
+    fake_module = SimpleNamespace(PITCHHZ={"a#3": 233.08}, make_wav=fake_make_wav)
+    monkeypatch.setattr(synth_module, "get_synth_module", lambda _sound: fake_module)
+
+    make_wav(
+        [("Bb3", -4), ("R", -8)],
+        sound="beeper",
+        bpm=120,
+        repeat=1,
+        progress=False,
+    )
+
+    assert captured["song"] == [
+        ("a#3", pytest.approx(8 / 3)),
+        ("r", pytest.approx(16 / 3)),
+    ] * 2
+    assert captured["kwargs"]["tempo"] == 120
+
+
+@pytest.mark.parametrize(
+    "song,message",
+    [
+        ([], "at least one note"),
+        ([("c4", 0)], "finite and non-zero"),
+        ([("c9", 4)], "outside sound a's range"),
+        ([("c4", float("inf"))], "finite and non-zero"),
+        ("4c4", r"iterable of \(note, duration\) pairs"),
+    ],
+)
+def test_make_wav_validates_song_before_opening_output(tmp_path, song, message):
+    output = tmp_path / "existing.wav"
+    output.write_bytes(b"keep me")
+
+    with pytest.raises(ValueError, match=message):
+        make_wav(song, sound="a", fn=str(output), progress=False)
+
+    assert output.read_bytes() == b"keep me"
+
+
 def test_sample_path_is_harmless_for_non_sample_sounds(tmp_path):
     output = tmp_path / "not_sample.wav"
 
@@ -465,6 +545,30 @@ def test_command_line_interface_reports_invalid_sound():
     assert "unknown sound" in result.output
 
 
+@pytest.mark.parametrize(
+    "song,message",
+    [
+        ("", "at least one note"),
+        ("0c4", "duration must be non-zero"),
+        ("4c9", "outside sound a's range"),
+    ],
+)
+def test_command_line_reports_invalid_inline_song_without_partial_output(
+    tmp_path, song, message
+):
+    output = tmp_path / "invalid.wav"
+    runner = CliRunner()
+
+    result = runner.invoke(
+        cli.main,
+        ["--song", song, "--output", str(output), "--quiet"],
+    )
+
+    assert result.exit_code == 1
+    assert message in result.output
+    assert not output.exists()
+
+
 def test_list_sounds():
     runner = CliRunner()
     result = runner.invoke(cli.main, ["--list-sounds"])
@@ -586,6 +690,17 @@ def test_render_command_accepts_abc_file(tmp_path):
     assert output.exists()
 
 
+def test_render_command_reports_malformed_abc_cleanly(tmp_path):
+    abc_file = tmp_path / "broken.abc"
+    abc_file.write_text("X:1\nK:C\n|")
+    runner = CliRunner()
+
+    result = runner.invoke(cli.main, ["render", str(abc_file), "--quiet"])
+
+    assert result.exit_code == 1
+    assert "cannot parse ABC file" in result.output
+
+
 def test_abc_reader_selects_requested_song_and_resets_state(tmp_path):
     abc_file = tmp_path / "songs.abc"
     abc_file.write_text(
@@ -651,6 +766,44 @@ def test_midi_reader_handles_note_on_velocity_zero_as_note_off(tmp_path):
     assert song == [("c4", 4.0)]
 
 
+def test_midi_reader_handles_running_status(tmp_path):
+    midi_file = tmp_path / "running_status.mid"
+    track = b"\x00\x90\x3c\x40\x60\x3c\x00\x00\xff\x2f\x00"
+    _write_midi(midi_file, [track])
+
+    song, _tempo = midi_to_song(str(midi_file), tracknum=0)
+
+    assert song == [("c4", 4.0)]
+
+
+def test_midi_reader_skips_length_prefixed_sysex_and_program_change(tmp_path):
+    midi_file = tmp_path / "events.mid"
+    sysex = b"\x00\xf0\x02\x01\xf7"
+    program_change = b"\x00\xc0\x05"
+    _write_midi(midi_file, [sysex + program_change + _single_note_track()])
+
+    song, _tempo = midi_to_song(str(midi_file), tracknum=0)
+
+    assert song == [("c4", 4.0)]
+
+
+def test_midi_reader_rejects_running_status_without_prior_event(tmp_path):
+    midi_file = tmp_path / "bad_running_status.mid"
+    _write_midi(midi_file, [b"\x00\x3c\x40\x00\xff\x2f\x00"])
+
+    with pytest.raises(ValueError, match="running status appears before"):
+        midi_to_song(str(midi_file), tracknum=0)
+
+
+def test_midi_reader_rejects_zero_length_notes_cleanly(tmp_path):
+    midi_file = tmp_path / "zero_length.mid"
+    track = b"\x00\x90\x3c\x40\x00\x90\x3c\x00\x00\xff\x2f\x00"
+    _write_midi(midi_file, [track])
+
+    with pytest.raises(ValueError, match="duration must be positive"):
+        midi_to_song(str(midi_file), tracknum=0)
+
+
 def test_midi_reader_reports_missing_tracks(tmp_path):
     midi_file = tmp_path / "empty.mid"
     _write_midi(midi_file, [b"\x00\xff\x2f\x00"])
@@ -660,6 +813,38 @@ def test_midi_reader_reports_missing_tracks(tmp_path):
 
     with pytest.raises(ValueError, match="track 3 not found"):
         midi_to_song(str(midi_file), tracknum=3)
+
+    with pytest.raises(ValueError, match="track 0 contains no notes"):
+        midi_to_song(str(midi_file), tracknum=0)
+
+
+def test_render_command_keeps_quiet_for_midi_metadata(tmp_path):
+    midi_file = tmp_path / "tempo.mid"
+    output = tmp_path / "tempo.wav"
+    tempo_event = b"\x00\xff\x51\x03\x07\xa1\x20"
+    _write_midi(midi_file, [tempo_event + _single_note_track()])
+    runner = CliRunner()
+
+    result = runner.invoke(
+        cli.main,
+        ["render", str(midi_file), "--output", str(output), "--quiet"],
+    )
+
+    assert result.exit_code == 0
+    assert result.output == ""
+    assert output.exists()
+
+
+def test_render_command_reports_malformed_midi_cleanly(tmp_path):
+    midi_file = tmp_path / "broken.mid"
+    midi_file.write_bytes(b"not a midi file")
+    runner = CliRunner()
+
+    result = runner.invoke(cli.main, ["render", str(midi_file), "--quiet"])
+
+    assert result.exit_code == 1
+    assert "cannot parse MIDI file" in result.output
+    assert "missing MThd header" in result.output
 
 
 def test_config_helpers(tmp_path):
@@ -698,6 +883,27 @@ def test_config_validate_reports_invalid_sound(tmp_path):
 
     assert result.exit_code == 1
     assert "unknown sound" in result.output
+
+
+@pytest.mark.parametrize(
+    "payload,message",
+    [
+        ([], "must be a JSON object"),
+        ({"sound": 1}, "sound must be a string"),
+        ({"sample_path": 1}, "sample_path must be a path string"),
+        ({"progress": {"enabled": "false"}}, "enabled must be true or false"),
+        ({"sounds": "a"}, "unknown option"),
+    ],
+)
+def test_config_validate_reports_structural_errors(tmp_path, payload, message):
+    config_path = tmp_path / "invalid.json"
+    config_path.write_text(json.dumps(payload))
+    runner = CliRunner()
+
+    result = runner.invoke(cli.main, ["config", "validate", str(config_path)])
+
+    assert result.exit_code == 1
+    assert message in result.output
 
 
 def test_config_show_reports_missing_file(tmp_path):
@@ -784,3 +990,52 @@ def test_preview_reports_invalid_non_sample_sound(tmp_path):
 
     assert result.exit_code == 1
     assert "unknown sound" in result.output
+
+
+def test_legacy_abc_entrypoint_routes_through_unified_renderer(
+    tmp_path, monkeypatch
+):
+    abc_file = tmp_path / "legacy.abc"
+    config_path = tmp_path / "legacy.json"
+    abc_file.write_text("X:1\nT:Legacy\nM:4/4\nL:1/4\nK:C\nC|\n")
+    config_path.write_text(
+        json.dumps({"sound": "a", "sample_path": "/configured/samples"})
+    )
+    captured = {}
+
+    def fake_make_wav(song, **kwargs):
+        captured["song"] = song
+        captured["kwargs"] = kwargs
+
+    monkeypatch.setattr(legacy_read_abc, "make_wav", fake_make_wav)
+
+    legacy_read_abc.main(
+        [str(abc_file), "--config", str(config_path), "--sound", "beeper"]
+    )
+
+    assert captured["song"]
+    assert captured["kwargs"]["config"].sound == "beeper"
+    assert captured["kwargs"]["config"].sample_path == "/configured/samples"
+
+
+def test_legacy_midi_entrypoint_routes_through_unified_renderer(
+    tmp_path, monkeypatch
+):
+    midi_file = tmp_path / "legacy.mid"
+    output = tmp_path / "legacy.wav"
+    _write_midi(midi_file, [_single_note_track()])
+    captured = {}
+
+    def fake_make_wav(song, **kwargs):
+        captured["song"] = song
+        captured["kwargs"] = kwargs
+
+    monkeypatch.setattr(legacy_readmidi, "make_wav", fake_make_wav)
+
+    legacy_readmidi.main(
+        [str(midi_file), "0", str(output), "--sound", "beeper"]
+    )
+
+    assert captured["song"] == [("c4", 4.0)]
+    assert captured["kwargs"]["config"].sound == "beeper"
+    assert captured["kwargs"]["fn"] == str(output)

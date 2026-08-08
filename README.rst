@@ -13,10 +13,10 @@ Python facade.
 About
 -----
 
-Isao Tomita (冨田 勲, Tomita Isao, 22 April 1932 – 5 May 2016), also known mononymically 
-as Tomita, was a Japanese music-composer, regarded as one of the pioneers of electronic 
-music and space music,and as one of the most famous producers of analog synthesizer 
-arrangements. `Wikipedia <https://en.wikipedia.org/wiki/Isao_Tomita>`_
+Isao Tomita (冨田 勲, Tomita Isao, 22 April 1932 – 5 May 2016), also known
+mononymically as Tomita, was a Japanese composer and a pioneer of electronic
+music and analog-synthesizer arrangements. `Wikipedia
+<https://en.wikipedia.org/wiki/Isao_Tomita>`_
 
 
 Features
@@ -60,6 +60,19 @@ If you installed this repo before version ``0.3.0`` and pipx reported
     $ pipx uninstall tomita
     $ pipx install "git+https://github.com/Jacoba1100254352/PySynth-Unified.git"
 
+For Python code in VS Code or another editor, install into the project rather
+than with ``pipx``. Create and activate a virtual environment in your project,
+then install PySynth Unified into it:
+
+.. code-block:: console
+
+    $ python3 -m venv .venv
+    $ . .venv/bin/activate
+    $ python -m pip install -U pip
+    $ python -m pip install "git+https://github.com/Jacoba1100254352/PySynth-Unified.git"
+
+Select that ``.venv`` as the project's Python interpreter in your editor.
+
 If you prefer the clone-and-install style used by older PySynth instructions,
 use ``make install`` from the repo root. This installs into a local ``.venv``
 so it also avoids system Python restrictions:
@@ -99,6 +112,30 @@ PySynth
 -------
 
 All scripts from *PySynth* can be found as modules.
+
+Python API
+~~~~~~~~~~
+
+The public ``pysynth`` facade is the simplest way to render from Python:
+
+.. code-block:: python
+
+    from pysynth import make_wav
+
+    song = [
+        ("c4", 4),
+        ("d4", 4),
+        ("e4", 4),
+        ("g4", 4),
+        ("c5", 2),
+    ]
+
+    make_wav(song, sound="e", bpm=120, fn="my_song.wav")
+
+Durations use note denominators: ``1`` is a whole note, ``2`` a half note,
+``4`` a quarter note, and so on. Use ``r`` for a rest, append ``*`` to accent a
+note, and use a negative duration for the legacy dotted-note shorthand (for
+example, ``-4`` is a dotted quarter note).
 
 Unified renderer
 ~~~~~~~~~~~~~~~~

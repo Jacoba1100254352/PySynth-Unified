@@ -16,7 +16,7 @@ Some of the definitions are borrowed from PlayABC 1.1
 """
 
 import sys
-from tomita.synth import config_from_args, get_synth_module
+from tomita.synth import config_from_args, make_wav
 
 if sys.version >= '3':
 	import urllib.request, urllib.error, urllib.parse
@@ -259,7 +259,7 @@ def _open_abc(fn):
 	return open(fn)
 
 
-def abc_to_song(fn, num=1):
+def _abc_to_song(fn, num=1):
 	global sel, song, chord, tie_next, second_ver, do_repeat, only_first, triplet
 	global tripfac, triptab, unit, global_sharps_flats, measure_sharps_flats
 	global piano, key
@@ -332,6 +332,14 @@ def abc_to_song(fn, num=1):
 	return song, bpm, {"key": key, "unit": unit}
 
 
+def abc_to_song(fn, num=1):
+	"""Parse one tune from an ABC file into PySynth note pairs."""
+	try:
+		return _abc_to_song(fn, num)
+	except (IndexError, KeyError, ZeroDivisionError) as exc:
+		raise ValueError("cannot parse ABC file %s: %s" % (fn, exc)) from exc
+
+
 def main(argv=None):
 	argv = list(sys.argv[1:] if argv is None else argv)
 	if not argv:
@@ -347,11 +355,7 @@ def main(argv=None):
 	print(parsed_song)
 	print()
 	print(len(parsed_song))
-	pysynth = get_synth_module(synth_config.sound)
-	options = {"bpm": bpm, "progress": synth_config.progress}
-	if synth_config.sample_path:
-		options["sample_path"] = synth_config.sample_path
-	pysynth.make_wav(parsed_song, **options)
+	make_wav(parsed_song, config=synth_config, bpm=bpm)
 
 
 if __name__ == "__main__":

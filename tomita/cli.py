@@ -77,35 +77,43 @@ def _render_options(func):
         ),
         click.option(
             "--abc-song-number",
-            type=int,
+            type=click.IntRange(min=1),
             default=1,
             show_default=True,
             help="Tune number to render from an ABC file.",
         ),
         click.option(
             "--track",
-            type=int,
+            type=click.IntRange(min=0),
             help="MIDI track index to render; defaults to the first non-empty track.",
         ),
         click.option("-o", "--output", help="Output WAV filename."),
-        click.option("--bpm", type=float, help="Beats per minute override."),
+        click.option(
+            "--bpm",
+            type=click.FloatRange(min=0, min_open=True),
+            help="Beats per minute override.",
+        ),
         click.option("--transpose", type=int, help="Octave transpose value."),
-        click.option("--repeat", type=int, help="Repeat count."),
+        click.option("--repeat", type=click.IntRange(min=0), help="Repeat count."),
         click.option("--sample-path", help="Directory containing samp piano WAV files."),
-        click.option("--progress-every", type=int, help="Print progress every N notes."),
+        click.option(
+            "--progress-every",
+            type=click.IntRange(min=1),
+            help="Print progress every N notes.",
+        ),
         click.option(
             "--progress-percent",
-            type=float,
+            type=click.FloatRange(min=0, max=100, min_open=True),
             help="Print progress every N percent of the song.",
         ),
         click.option(
             "--progress-max-updates",
-            type=int,
+            type=click.IntRange(min=1),
             help="Approximate maximum progress updates in automatic mode.",
         ),
         click.option(
             "--progress-small-threshold",
-            type=int,
+            type=click.IntRange(min=0),
             help="Song length at or below which every note is reported.",
         ),
         click.option(
@@ -137,7 +145,10 @@ def _detect_format(source, source_format):
         return "abc"
     if suffixes.endswith(".mid") or suffixes.endswith(".midi"):
         return "midi"
-    raise ValueError("cannot infer input format for %s; pass --format abc or --format midi" % source)
+    raise ValueError(
+        "cannot infer input format for %s; pass --format abc or --format midi"
+        % source
+    )
 
 
 def _default_output(source, demo):
@@ -149,7 +160,7 @@ def _default_output(source, demo):
 def _load_render_source(source, source_format, song, demo, abc_song_number, track):
     if source and song:
         raise ValueError("pass either a source file or --song, not both")
-    if song:
+    if song is not None:
         return parse_song(song), {"fn": "pysynth_output.wav"}, "inline"
     if source:
         detected = _detect_format(source, source_format)
@@ -220,7 +231,7 @@ def _render_impl(
     demo="anthem",
     source_format="auto",
     abc_song_number=1,
-    track=1,
+    track=None,
     output=None,
     bpm=None,
     transpose=None,
@@ -255,7 +266,8 @@ def _render_impl(
         abc_song_number,
         track,
     )
-    render_options.setdefault("fn", output or _default_output(source, demo if not song else "output"))
+    output_demo = demo if song is None else "output"
+    render_options.setdefault("fn", output or _default_output(source, output_demo))
     render_options = _apply_render_overrides(
         render_options,
         output,
@@ -379,7 +391,7 @@ def config_init(path, force=False, sound="b", sample_path=None):
         if os.path.exists(path) and not force:
             raise ValueError("%s already exists; pass --force to overwrite it" % path)
         data = SynthConfig(sound=sound, sample_path=sample_path).to_dict()
-        with open(path, "w") as fh:
+        with open(path, "w", encoding="utf-8") as fh:
             json.dump(data, fh, indent=2)
             fh.write("\n")
         click.echo("Wrote %s" % path)

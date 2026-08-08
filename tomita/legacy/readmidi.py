@@ -38,9 +38,10 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
+import io
 import struct
 
-from tomita.synth import config_from_args, get_synth_module
+from tomita.synth import config_from_args, make_wav
 
 
 class Note(object):
@@ -70,15 +71,30 @@ class MidiFile(object):
     "Represents the notes in a MIDI file"
 
     def read_byte(self, file):
-        return struct.unpack("B", file.read(1))[0]
+        data = file.read(1)
+        if len(data) != 1:
+            raise ValueError("unexpected end of file")
+        return data[0]
+
+    def read_exact(self, file, length):
+        data = file.read(length)
+        if len(data) != length:
+            raise ValueError("unexpected end of file")
+        return data
 
     def read_variable_length(self, file, counter):
-        counter -= 1
+        if counter < 1:
+            raise ValueError("truncated variable-length value")
         num = self.read_byte(file)
+        counter -= 1
+        byte_count = 1
 
         if num & 0x80:
             num = num & 0x7F
             while True:
+                if counter < 1 or byte_count >= 4:
+                    raise ValueError("invalid variable-length value")
+                byte_count += 1
                 counter -= 1
                 c = self.read_byte(file)
                 num = (num << 7) + (c & 0x7F)
@@ -87,96 +103,141 @@ class MidiFile(object):
 
         return (num, counter)
 
-    def __init__(self, file_name):
+    def __init__(self, file_name, verbose=False):
         self.tempo = 120
+        self.file_name = file_name
+        self.format = 0
+        self.track_count = 0
+        self.time_division = 0
+        self.tracks = []
         try:
-            file = open(file_name, "rb")
-            if file.read(4) != b"MThd":
-                raise Exception("Not a MIDI file")
-            self.file_name = file_name
-            size = struct.unpack(">i", file.read(4))[0]
-            if size != 6:
-                raise Exception("Unusual MIDI file with non-6 sized header")
-            self.format = struct.unpack(">h", file.read(2))[0]
-            self.track_count = struct.unpack(">h", file.read(2))[0]
-            self.time_division = struct.unpack(">h", file.read(2))[0]
+            with open(file_name, "rb") as file:
+                self._read(file, verbose)
+        except OSError:
+            raise
+        except (
+            IndexError,
+            TypeError,
+            ValueError,
+            ZeroDivisionError,
+            struct.error,
+        ) as exc:
+            raise ValueError(
+                "cannot parse MIDI file %s: %s" % (file_name, exc)
+            ) from exc
 
-            # Now to fill out the arrays with the notes
-            self.tracks = []
-            for i in range(0, self.track_count):
-                self.tracks.append([])
+    def _read(self, file, verbose):
+        if self.read_exact(file, 4) != b"MThd":
+            raise ValueError("missing MThd header")
+        size = struct.unpack(">I", self.read_exact(file, 4))[0]
+        if size != 6:
+            raise ValueError("header size is %u instead of 6" % size)
+        self.format = struct.unpack(">H", self.read_exact(file, 2))[0]
+        self.track_count = struct.unpack(">H", self.read_exact(file, 2))[0]
+        self.time_division = struct.unpack(">H", self.read_exact(file, 2))[0]
+        if self.format not in (0, 1, 2):
+            raise ValueError("unsupported MIDI format %u" % self.format)
+        if self.time_division == 0:
+            raise ValueError("time division cannot be zero")
+        if self.time_division & 0x8000:
+            raise ValueError("SMPTE time division is not supported")
 
-            for nn, track in enumerate(self.tracks):
-                abs_time = 0.0
+        self.tracks = [[] for _ in range(self.track_count)]
+        for track_number, track in enumerate(self.tracks):
+            if self.read_exact(file, 4) != b"MTrk":
+                raise ValueError(
+                    "track %u is missing its MTrk header" % track_number
+                )
+            size = struct.unpack(">I", self.read_exact(file, 4))[0]
+            data = self.read_exact(file, size)
+            self._read_track(io.BytesIO(data), track, verbose)
 
-                if file.read(4) != b"MTrk":
-                    raise Exception("Not a valid track")
-                size = struct.unpack(">i", file.read(4))[0]
+    def _read_track(self, file, track, verbose):
+        abs_time = 0.0
+        remaining = len(file.getbuffer())
+        last_flag = None
+        while remaining > 0:
+            delta, remaining = self.read_variable_length(file, remaining)
+            abs_time += delta / float(self.time_division)
 
-                # To keep track of running status
-                last_flag = None
-                while size > 0:
-                    delta, size = self.read_variable_length(file, size)
-                    delta /= float(self.time_division)
-                    abs_time += delta
+            if remaining < 1:
+                raise ValueError("track ends before an event")
+            flag = self.read_byte(file)
+            remaining -= 1
 
-                    size -= 1
-                    flag = self.read_byte(file)
-                    # Sysex messages
-                    if flag == 0xF0 or flag == 0xF7:
-                        # print "Sysex"
-                        while True:
-                            size -= 1
-                            if self.read_byte(file) == 0xF7:
-                                break
-                    # Meta messages
-                    elif flag == 0xFF:
-                        size -= 1
-                        type = self.read_byte(file)
-                        if type == 0x2F:  # end of track event
-                            self.read_byte(file)
-                            size -= 1
-                            break
-                        print("Meta: " + str(type))
-                        length, size = self.read_variable_length(file, size)
-                        message = file.read(length)
-                        # if type not in [0x0, 0x7, 0x20, 0x2F, 0x51, 0x54, 0x58, 0x59, 0x7F]:
-                        print(length, message)
-                        if type == 0x51:  # qpm/bpm
-                            # http://www.recordingblogs.com/sa/Wiki?topic=MIDI+Set+Tempo+meta+message
-                            self.tempo = 6e7 / struct.unpack(">i", b"\x00" + message)[0]
-                            print("tempo =", self.tempo, "bpm")
-                    # MIDI messages
-                    else:
-                        if flag & 0x80:
-                            type_and_channel = flag
-                            size -= 1
-                            param1 = self.read_byte(file)
-                            last_flag = flag
-                        else:
-                            type_and_channel = last_flag
-                            param1 = flag
-                        type = (type_and_channel & 0xF0) >> 4
-                        channel = type_and_channel & 0xF
-                        if type == 0xC:  # detect MIDI program change
-                            print("program change, channel", channel, "=", param1)
-                            continue
-                        size -= 1
-                        param2 = self.read_byte(file)
+            if flag in (0xF0, 0xF7):
+                length, remaining = self.read_variable_length(file, remaining)
+                if length > remaining:
+                    raise ValueError("system-exclusive event exceeds its track")
+                self.read_exact(file, length)
+                remaining -= length
+                continue
 
-                        # detect MIDI ons and MIDI offs
-                        if type == 0x9:
-                            track.append(Note(channel, param1, param2, abs_time))
-                        elif type == 0x8:
-                            for note in reversed(track):
-                                if note.channel == channel and note.pitch == param1:
-                                    note.duration = abs_time - note.start
-                                    break
+            if flag == 0xFF:
+                if remaining < 1:
+                    raise ValueError("meta event has no type")
+                event_type = self.read_byte(file)
+                remaining -= 1
+                length, remaining = self.read_variable_length(file, remaining)
+                if length > remaining:
+                    raise ValueError("meta event exceeds its track")
+                message = self.read_exact(file, length)
+                remaining -= length
+                if event_type == 0x2F:
+                    if length != 0:
+                        raise ValueError("end-of-track event has data")
+                    break
+                if event_type == 0x51:
+                    if length != 3:
+                        raise ValueError("tempo event must contain three bytes")
+                    microseconds = int.from_bytes(message, "big")
+                    if microseconds == 0:
+                        raise ValueError("tempo event cannot be zero")
+                    self.tempo = 60000000.0 / microseconds
+                    if verbose:
+                        print("tempo =", self.tempo, "bpm")
+                elif verbose:
+                    print("Meta:", event_type, length, message)
+                continue
 
-        except Exception as e:
-            print("Cannot parse MIDI file: " + str(e))
-        finally:
-            file.close()
+            if flag & 0x80:
+                if flag >= 0xF0:
+                    raise ValueError("unsupported system event 0x%02x" % flag)
+                type_and_channel = flag
+                last_flag = flag
+                if remaining < 1:
+                    raise ValueError("channel event has no data")
+                param1 = self.read_byte(file)
+                remaining -= 1
+            else:
+                if last_flag is None:
+                    raise ValueError("running status appears before a channel event")
+                type_and_channel = last_flag
+                param1 = flag
+
+            if param1 & 0x80:
+                raise ValueError("channel event data byte has its status bit set")
+
+            event_type = (type_and_channel & 0xF0) >> 4
+            channel = type_and_channel & 0xF
+            if event_type in (0xC, 0xD):
+                if verbose and event_type == 0xC:
+                    print("program change, channel", channel, "=", param1)
+                continue
+            if remaining < 1:
+                raise ValueError("channel event is missing its second data byte")
+            param2 = self.read_byte(file)
+            remaining -= 1
+            if param2 & 0x80:
+                raise ValueError("channel event data byte has its status bit set")
+
+            if event_type == 0x9:
+                track.append(Note(channel, param1, param2, abs_time))
+            elif event_type == 0x8:
+                for note in reversed(track):
+                    if note.channel == channel and note.pitch == param1:
+                        note.duration = abs_time - note.start
+                        break
 
     def __str__(self):
         s = ""
@@ -189,17 +250,23 @@ class MidiFile(object):
 
 def getdur(a, b):
     "Calculate note length for PySynth"
+    if b <= a:
+        raise ValueError("MIDI note duration must be positive")
     return 4 / (b - a)
 
 
 def midi_to_song(file_name, tracknum=None, verbose=False):
-    m = MidiFile(file_name)
+    m = MidiFile(file_name, verbose=verbose)
     if tracknum is None:
         tracknum = next((idx for idx, track in enumerate(m.tracks) if track), None)
         if tracknum is None:
             raise ValueError("no note tracks found in %s" % file_name)
     if tracknum < 0 or tracknum >= len(m.tracks):
-        raise ValueError("track %u not found; file has %u tracks" % (tracknum, len(m.tracks)))
+        raise ValueError(
+            "track %d not found; file has %u tracks" % (tracknum, len(m.tracks))
+        )
+    if not m.tracks[tracknum]:
+        raise ValueError("track %u contains no notes" % tracknum)
 
     if verbose:
         print()
@@ -248,7 +315,7 @@ def midi_to_song(file_name, tracknum=None, verbose=False):
             float(nn[1]) > 0 and notes.get(nn[0].lower(), -1) == -1
         ):  # note ends because of new note
             old = getnote(notes)
-            if old != None:
+            if old is not None:
                 if notes[old] != start:
                     song.append((old, getdur(notes[old], start)))
                 notes[old] = -1
@@ -280,11 +347,7 @@ def main(argv=None):
     else:
         filename = "midi.wav"
     song, tempo = midi_to_song(argv[0], tracknum=tracknum, verbose=True)
-    pysynth = get_synth_module(synth_config.sound)
-    options = {"fn": filename, "bpm": tempo, "progress": synth_config.progress}
-    if synth_config.sample_path:
-        options["sample_path"] = synth_config.sample_path
-    pysynth.make_wav(song, **options)
+    make_wav(song, config=synth_config, fn=filename, bpm=tempo)
 
 
 if __name__ == "__main__":

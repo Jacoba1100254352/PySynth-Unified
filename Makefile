@@ -1,4 +1,4 @@
-.PHONY: clean clean-test clean-pyc clean-build docs help
+.PHONY: clean clean-test clean-pyc clean-build coverage dist docs help install install-active install-editable install-user lint open-docs release servedocs test test-all venv
 .DEFAULT_GOAL := help
 PYTHON ?= python3
 PIP ?= $(PYTHON) -m pip
@@ -26,10 +26,10 @@ for line in sys.stdin:
 endef
 export PRINT_HELP_PYSCRIPT
 
-BROWSER := python -c "$$BROWSER_PYSCRIPT"
+BROWSER := $(VENV_PYTHON) -c "$$BROWSER_PYSCRIPT"
 
 help:
-	@python -c "$$PRINT_HELP_PYSCRIPT" < $(MAKEFILE_LIST)
+	@$(PYTHON) -c "$$PRINT_HELP_PYSCRIPT" < $(MAKEFILE_LIST)
 
 clean: clean-build clean-pyc clean-test ## remove all build, test, coverage and Python artifacts
 
@@ -53,37 +53,36 @@ clean-test: ## remove test and coverage artifacts
 	rm -fr .pytest_cache
 
 lint: ## check style with flake8
-	flake8 tomita tests
+	$(VENV_PYTHON) -m flake8 tomita pysynth tests
 
 test: ## run tests quickly with the default Python
-	pytest
+	$(VENV_PYTHON) -m pytest -q
 
 test-all: ## run tests on every Python version with tox
-	tox
+	$(VENV_PYTHON) -m tox
 
 coverage: ## check code coverage quickly with the default Python
-	coverage run --source tomita,pysynth -m pytest
-	coverage report -m
-	coverage html
+	$(VENV_PYTHON) -m coverage run --source tomita,pysynth -m pytest
+	$(VENV_PYTHON) -m coverage report -m
+	$(VENV_PYTHON) -m coverage html
 	$(BROWSER) htmlcov/index.html
 
 docs: ## generate Sphinx HTML documentation, including API docs
-	rm -f docs/tomita.rst
-	rm -f docs/modules.rst
-	sphinx-apidoc -o docs/ tomita
-	$(MAKE) -C docs clean
-	$(MAKE) -C docs html
+	$(VENV_PYTHON) -m sphinx -W --keep-going -b html docs docs/_build/html
+
+open-docs: docs ## build and open the Sphinx HTML documentation
 	$(BROWSER) docs/_build/html/index.html
 
 servedocs: docs ## compile the docs watching for changes
-	watchmedo shell-command -p '*.rst' -c '$(MAKE) -C docs html' -R -D .
+	$(VENV)/bin/watchmedo shell-command -p '*.rst' -c '$(MAKE) -C docs html' -R -D .
 
 release: dist ## package and upload a release
-	twine upload dist/*
+	$(VENV_PYTHON) -m twine upload dist/*
 
-dist: clean ## builds source and wheel package
-	python setup.py sdist
-	python setup.py bdist_wheel
+dist: ## build and validate source and wheel packages
+	$(MAKE) clean-build
+	$(VENV_PYTHON) -m build
+	$(VENV_PYTHON) -m twine check dist/*
 	ls -l dist
 
 $(VENV_PYTHON):
@@ -112,6 +111,6 @@ install-user: ## install the package into the user site-packages
 	$(PIP) install --user .
 
 install-editable: venv clean-legacy-install ## install the package in editable/development mode
-	$(VENV_PIP) install -e '.[test]'
+	$(VENV_PIP) install -e '.[dev]'
 	site="$$( $(VENV_PYTHON) -c 'import site; print(site.getsitepackages()[0])' )" && printf '%s\n' '$(CURDIR)' > "$$site/pysynth_unified_editable.pth"
 	@echo "Installed editable. Run: $(VENV)/bin/pysynth list-sounds"

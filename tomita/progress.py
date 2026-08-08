@@ -3,6 +3,7 @@
 from __future__ import print_function
 
 import math
+import numbers
 import time
 
 
@@ -18,17 +19,42 @@ class ProgressConfig(object):
         small_threshold=12,
         show_time=False,
     ):
-        self.enabled = bool(enabled)
+        if not isinstance(enabled, bool):
+            raise ValueError("progress enabled must be true or false")
+        if not isinstance(show_time, bool):
+            raise ValueError("progress show_time must be true or false")
+        if every is not None and percent is not None:
+            raise ValueError("progress every and percent cannot both be set")
+        if every is not None:
+            if isinstance(every, bool) or not isinstance(every, numbers.Integral):
+                raise ValueError("progress every must be an integer")
+            if every < 1:
+                raise ValueError("progress every must be at least 1")
+            every = int(every)
+        if percent is not None:
+            if isinstance(percent, bool) or not isinstance(percent, numbers.Real):
+                raise ValueError("progress percent must be a number")
+            percent = float(percent)
+            if not math.isfinite(percent) or percent <= 0 or percent > 100:
+                raise ValueError("progress percent must be greater than 0 and at most 100")
+        if isinstance(max_updates, bool) or not isinstance(max_updates, numbers.Integral):
+            raise ValueError("progress max_updates must be an integer")
+        if max_updates < 1:
+            raise ValueError("progress max_updates must be at least 1")
+        if (
+            isinstance(small_threshold, bool)
+            or not isinstance(small_threshold, numbers.Integral)
+        ):
+            raise ValueError("progress small_threshold must be an integer")
+        if small_threshold < 0:
+            raise ValueError("progress small_threshold cannot be negative")
+
+        self.enabled = enabled
         self.every = every
         self.percent = percent
-        self.max_updates = max(1, int(max_updates))
-        self.small_threshold = max(0, int(small_threshold))
-        self.show_time = bool(show_time)
-
-        if self.every is not None and int(self.every) < 1:
-            raise ValueError("progress every must be at least 1")
-        if self.percent is not None and float(self.percent) <= 0:
-            raise ValueError("progress percent must be greater than 0")
+        self.max_updates = int(max_updates)
+        self.small_threshold = int(small_threshold)
+        self.show_time = show_time
 
     @classmethod
     def from_value(cls, value=None):
@@ -38,11 +64,25 @@ class ProgressConfig(object):
             return cls()
         if isinstance(value, bool):
             return cls(enabled=value)
-        if isinstance(value, int):
+        if isinstance(value, numbers.Integral):
             return cls(every=value)
-        if isinstance(value, float):
+        if isinstance(value, numbers.Real):
             return cls(percent=value)
         if isinstance(value, dict):
+            allowed = {
+                "enabled",
+                "every",
+                "percent",
+                "max_updates",
+                "small_threshold",
+                "show_time",
+            }
+            unknown = sorted(str(key) for key in value if key not in allowed)
+            if unknown:
+                raise ValueError(
+                    "unknown progress option%s: %s"
+                    % ("s" if len(unknown) > 1 else "", ", ".join(unknown))
+                )
             return cls(**value)
         raise TypeError("unsupported progress config: %r" % (value,))
 

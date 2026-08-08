@@ -15,7 +15,9 @@ Types of Contributions
 Report Bugs
 ~~~~~~~~~~~
 
-Report bugs at https://github.com/Jacoba1100254352/PySynth-Unified/issues.
+This fork does not currently have GitHub Issues enabled. A focused pull
+request containing a minimal reproduction or failing regression test is the
+most direct way to report a defect.
 
 If you are reporting a bug, please include:
 
@@ -26,14 +28,14 @@ If you are reporting a bug, please include:
 Fix Bugs
 ~~~~~~~~
 
-Look through the GitHub issues for bugs. Anything tagged with "bug" and "help
-wanted" is open to whoever wants to implement it.
+Check open pull requests and the maintained upstream before starting work, and
+include a regression test with each fix.
 
 Implement Features
 ~~~~~~~~~~~~~~~~~~
 
-Look through the GitHub issues for features. Anything tagged with "enhancement"
-and "help wanted" is open to whoever wants to implement it.
+Keep additions compatible with the legacy entrypoints and route shared
+behavior through ``tomita.synth`` and ``tomita.progress``.
 
 Write Documentation
 ~~~~~~~~~~~~~~~~~~~
@@ -45,9 +47,7 @@ articles, and such.
 Submit Feedback
 ~~~~~~~~~~~~~~~
 
-The best way to send feedback is to file an issue at https://github.com/Jacoba1100254352/PySynth-Unified/issues.
-
-If you are proposing a feature:
+If you are proposing a feature in a pull request:
 
 * Explain in detail how it would work.
 * Keep the scope as narrow as possible, to make it easier to implement.
@@ -76,14 +76,14 @@ Ready to contribute? Here's how to set up PySynth Unified for local development.
 
    Now you can make your changes locally.
 
-5. When you're done making changes, check that your changes pass flake8 and the
-   tests, including testing other Python versions with tox::
+5. When you're done making changes, run the maintained checks. Tox also tests
+   any supported Python versions installed on your machine::
 
-    $ python -m pytest
-    $ tox
-
-   Install tox into your virtual environment if you want to run the full
-   multi-version test matrix.
+    $ make lint
+    $ make test
+    $ make docs
+    $ make dist
+    $ make test-all
 
 6. Commit your changes and push your branch to GitHub::
 
@@ -112,15 +112,19 @@ To run a subset of tests::
 $ python -m pytest tests/test_tomita.py
 
 
-Deploying
+Releasing
 ---------
 
-A reminder for the maintainers on how to deploy.
-Make sure all your changes are committed (including an entry in HISTORY.rst).
-Then run::
+Release commits, tags, and uploaded artifacts are separate checkpoints. Start
+from a clean checkout, update ``HISTORY.rst``, and validate the proposed source
+before changing the version::
 
-$ bump2version patch # possible: major / minor / patch
-$ git push
-$ git push --tags
+    $ make lint
+    $ make test
+    $ make docs
+    $ bump2version patch  # or minor / major
+    $ make dist
 
-Push tags only when you are intentionally publishing a release.
+Review and commit the version changes, push that commit, and only then create
+and push a matching ``vX.Y.Z`` tag when intentionally publishing a release.
+Upload only the artifacts produced and checked from that tagged source.
