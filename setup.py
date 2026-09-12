@@ -32,7 +32,7 @@ setup(
     author_email="tomita@g4brielvs.me",
     python_requires=">=3.9",
     classifiers=[
-        "Development Status :: 2 - Pre-Alpha",
+        "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
         "Natural Language :: English",
         "Operating System :: OS Independent",
@@ -68,6 +68,6 @@ setup(
         "Original PySynth": "https://github.com/mdoege/PySynth",
     },
     url="https://github.com/Jacoba1100254352/PySynth-Unified",
-    version="0.3.0",
+    version="0.3.1",
     zip_safe=False,
 )

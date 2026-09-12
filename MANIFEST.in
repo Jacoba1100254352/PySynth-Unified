@@ -3,9 +3,15 @@ include CONTRIBUTING.rst
 include HISTORY.rst
 include LICENSE
 include README.rst
+include RELEASE_NOTES.md
+include Makefile
+include tox.ini
+include pysynth.example.json
+recursive-include scripts *.py
 
 recursive-include tests *.py
 
 recursive-include docs *.rst
+include docs/conf.py
 include docs/Makefile
 include docs/make.bat

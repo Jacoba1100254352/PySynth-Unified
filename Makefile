@@ -1,4 +1,4 @@
-.PHONY: clean clean-test clean-pyc clean-build coverage dist docs help install install-active install-editable install-user lint open-docs release servedocs test test-all venv
+.PHONY: clean clean-test clean-pyc clean-build coverage dist docs help install install-active install-editable install-user lint open-docs release release-check servedocs test test-all venv
 .DEFAULT_GOAL := help
 PYTHON ?= python3
 PIP ?= $(PYTHON) -m pip
@@ -53,7 +53,7 @@ clean-test: ## remove test and coverage artifacts
 	rm -fr .pytest_cache
 
 lint: ## check style with flake8
-	$(VENV_PYTHON) -m flake8 tomita pysynth tests
+	$(VENV_PYTHON) -m flake8 tomita pysynth tests scripts
 
 test: ## run tests quickly with the default Python
 	$(VENV_PYTHON) -m pytest -q
@@ -76,8 +76,10 @@ open-docs: docs ## build and open the Sphinx HTML documentation
 servedocs: docs ## compile the docs watching for changes
 	$(VENV)/bin/watchmedo shell-command -p '*.rst' -c '$(MAKE) -C docs html' -R -D .
 
-release: dist ## package and upload a release
-	$(VENV_PYTHON) -m twine upload dist/*
+release: release-check ## prepare and verify release artifacts (publishing is separate)
+
+release-check: dist ## test installed wheel/source archives and write SHA256SUMS
+	$(VENV_PYTHON) scripts/verify_release.py dist --version "$$($(VENV_PYTHON) -c 'import tomita; print(tomita.__version__)')"
 
 dist: ## build and validate source and wheel packages
 	$(MAKE) clean-build

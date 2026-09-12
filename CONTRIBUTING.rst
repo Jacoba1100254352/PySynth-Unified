@@ -116,15 +116,34 @@ Releasing
 ---------
 
 Release commits, tags, and uploaded artifacts are separate checkpoints. Start
-from a clean checkout, update ``HISTORY.rst``, and validate the proposed source
-before changing the version::
+from a clean checkout. Update the version in ``setup.py``, ``setup.cfg``, and
+``tomita/__init__.py`` together, update versioned installation examples, and
+write ``HISTORY.rst`` and ``RELEASE_NOTES.md``. Validate the proposed release::
 
     $ make lint
     $ make test
     $ make docs
-    $ bump2version patch  # or minor / major
-    $ make dist
+    $ make release-check
 
-Review and commit the version changes, push that commit, and only then create
-and push a matching ``vX.Y.Z`` tag when intentionally publishing a release.
-Upload only the artifacts produced and checked from that tagged source.
+The normal (non-prerelease) 0.x release benchmark requires all of the following:
+
+* Passing installed-package tests for CPython 3.9--3.14 on Linux and 3.14 on
+  macOS and Windows. A local tox skip is not evidence for a missing version.
+* Passing lint, compilation, strict Sphinx builds, package metadata checks,
+  and clean installs of both wheel and source archive. ``release-check`` runs
+  on Python 3.14 with the development extras installed, checks archive
+  contents, runs the compatibility suite outside the source checkout, builds
+  documentation from the source archive, and then writes ``SHA256SUMS``.
+* Consistent version metadata and release notes, a reviewed staged diff,
+  redacted secret scanning, and documented compatibility limits.
+* A passing hosted workflow for the exact release commit. Build the final
+  artifacts from that commit, create the matching ``vX.Y.Z`` tag, publish
+  those verified artifacts and checksums on GitHub, then download them again
+  and verify the checksums and tag target.
+
+If a required gate is incomplete, fix it before publishing a normal release;
+use a clearly labeled prerelease only for an intentional provisional milestone.
+The project remains pre-1.0: this benchmark verifies the documented rendering
+surface, not full MIDI/ABC conformance, interactive audio playback, or every
+external sample library. ``make release`` only prepares and verifies artifacts.
+Publishing to PyPI is a separate, explicitly configured distribution step.

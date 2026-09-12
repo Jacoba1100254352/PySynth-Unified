@@ -35,6 +35,18 @@ Features
 Installation
 ------------
 
+PySynth Unified is tested on CPython 3.9 through 3.14. Use Python 3.10 or
+newer for a maintained Python runtime; 3.9 compatibility is retained for
+existing users, although `Python 3.9 reached end of life
+<https://peps.python.org/pep-0596/>`_ in October 2025.
+
+For the verified release, download the wheel from `GitHub Releases
+<https://github.com/Jacoba1100254352/PySynth-Unified/releases>`_ and install it
+inside an activated virtual environment with ``python -m pip install
+pysynth_unified-0.3.1-py3-none-any.whl``. The release also includes a source
+archive, release notes, and ``SHA256SUMS``. Git installs below track ongoing
+development; append ``@v0.3.1`` to the Git URL to pin this release.
+
 For a command-line install on macOS/Homebrew Python, use ``pipx``. It creates
 an isolated environment and avoids Python's ``externally-managed-environment``
 error:
@@ -94,7 +106,7 @@ environment instead:
     $ python -m venv .venv
     $ . .venv/bin/activate
     $ python -m pip install -U pip
-    $ python -m pip install .
+    $ python -m pip install -e '.[dev]'
 
 If you are already inside an activated virtual environment, ``make
 install-active`` installs into that environment. This repo intentionally avoids

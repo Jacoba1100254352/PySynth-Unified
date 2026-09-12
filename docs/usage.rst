@@ -44,6 +44,11 @@ Render ABC and MIDI files:
     $ pysynth render tune.mid --track 0 --sound e --output tune.wav
 
 If ``--track`` is omitted, the first MIDI track containing notes is selected.
+Track numbers are zero-based. MIDI conversion retains the legacy single-voice
+model: use constant-tempo, monophonic tracks. Chords, overlapping channels,
+tempo changes, controllers, and sustain are not faithfully reproduced; this
+is not a full MIDI sequencer. SMPTE timing is rejected. ABC conversion likewise
+supports the bundled reader's melody-oriented subset, not every ABC feature.
 Use ``--quiet`` for no progress or summary output, or ``--no-summary`` to keep
 progress while hiding the final WAV summary.
 
@@ -68,3 +73,15 @@ Sample-backed piano
 The ``samp`` sound needs a local Salamander piano sample directory. Set it in
 ``pysynth.json``, pass ``--sample-path``, or set ``PYSYNTH_SAMPLE_PATH``. The
 other sounds do not require external audio files.
+
+Use Salamander's **48 kHz, 24-bit stereo PCM WAV** files (velocity layer 10,
+for example ``C4v10.wav`` and ``D#4v10.wav``). Sample files are not bundled;
+obtain them separately and follow their license. The renderer reads the left
+channel and writes 48 kHz, 16-bit mono audio. It validates required sample
+files before opening the destination. Release tests use generated WAV fixtures
+in that format, not the full external Salamander library.
+
+``transpose`` shifts by octaves, as in the legacy engines. Beeper accepts
+accent markers for compatibility but has no separate accent volume. For the
+``b``, ``e``, and ``samp`` engines, the unified API maps ``pause`` to
+``leg_stac = 1 - pause`` unless an explicit ``leg_stac`` is supplied.
