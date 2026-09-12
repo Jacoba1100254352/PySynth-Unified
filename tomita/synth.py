@@ -333,7 +333,13 @@ def make_wav(song, config=None, sound=None, progress=None, **kwargs):
     if "repeat" in kwargs:
         kwargs["repeat"] = _nonnegative_integer("repeat", kwargs["repeat"])
 
+    if sound in ("b", "e", "samp") and "pause" in kwargs:
+        # Both options express the sounding fraction of a note.
+        kwargs.setdefault("leg_stac", 1.0 - kwargs.pop("pause"))
+
     if sound == "beeper":
+        # The ringtone engine has no accent/volume parameter.
+        song = [(note.rstrip("*"), duration) for note, duration in song]
         if "bpm" in kwargs:
             kwargs.setdefault("tempo", kwargs["bpm"])
             kwargs.pop("bpm")

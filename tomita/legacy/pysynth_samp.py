@@ -31,7 +31,7 @@
 from __future__ import division
 
 import os
-import wave, struct
+import wave
 import numpy as np
 from math import sin, cos, pi, log, exp
 
@@ -49,6 +49,24 @@ fnames = getfn(10)
 #       48 kHz version:
 # patchpath = "/usr/share/sounds/SalamanderGrandPianoV3_48khz24bit/48khz24bit/"
 patchpath = "48khz24bit/"
+
+
+def _load_sample(filename):
+    """Decode the left channel of a Salamander 48 kHz, 24-bit stereo WAV."""
+    try:
+        with wave.open(filename, "rb") as wav:
+            if (wav.getnchannels(), wav.getsampwidth(), wav.getframerate()) != (2, 3, 48000):
+                raise ValueError("expected 48 kHz, 24-bit stereo PCM")
+            frames = wav.getnframes()
+            raw = wav.readframes(frames)
+            if frames == 0 or len(raw) != frames * 6:
+                raise ValueError("empty or truncated audio data")
+    except (OSError, EOFError, wave.Error, ValueError) as exc:
+        raise ValueError("cannot load sample %s: %s" % (filename, exc)) from exc
+    octets = np.frombuffer(raw, dtype=np.uint8).reshape(-1, 6).astype(np.int32)
+    values = octets[:, 0] | (octets[:, 1] << 8) | (octets[:, 2] << 16)
+    values = (values ^ 0x800000) - 0x800000
+    return values.astype(np.float64) / 8388608.0
 
 
 ##########################################################################
@@ -94,65 +112,41 @@ def make_wav(
             "PYSYNTH_SAMPLE_PATH to the directory containing files like A0v10.wav."
         )
 
-    f = wave.open(fn, "w")
-
-    f.setnchannels(1)
-    f.setsampwidth(2)
-    f.setframerate(48000)
-    f.setcomptype("NONE", "Not Compressed")
+    # Validate and load every required sample before touching the output.
+    song = list(song)
+    samples = {}
+    for note, _duration in song:
+        note = note.rstrip("*")
+        if note == "r":
+            continue
+        if not note[-1].isdigit():
+            note += "4"
+        filename = fnames[keynum[note]][0]
+        if filename not in samples:
+            samples[filename] = _load_sample(os.path.join(sample_dir, filename))
 
     bpmfac = 120.0 / bpm
 
     def length(l):
         return 96000.0 / l * bpmfac
 
-    def getval(v):
-        a = struct.unpack("i", v + b"\x00")[0] / 256 - 32768
-        if a > 0:
-            a = 1 - a / 32768
-        else:
-            a = -1 - a / 32768
-        return a
-
     def render2(a, b, vol, pos, knum, note):
         snd_len = int(b)
-
-        sample_file = os.path.join(sample_dir, fnames[knum][0])
-        if not os.path.exists(sample_file):
-            raise ValueError(
-                "missing sample file %s; check the configured PySynth sample path"
-                % sample_file
-            )
-        wf = wave.open(sample_file, "rb")
-        wl = wf.getnframes()
-        wd = wf.readframes(wl)
-        new = np.zeros(wl // 6)
-
-        for x in range(wl // 6):
-            # left: getval( wd[6 * x:6 * x +3] )
-            # right: getval( wd[6 * x + 3:6 * x +6] )
-            new[x] = getval(wd[6 * x : 6 * x + 3])
-
-        wf.close()
-
-        f = fnames[knum][1]
+        new = samples[fnames[knum][0]]
+        factor = fnames[knum][1] * 2.0 ** transpose
         # Salamander samples every third piano key, so other notes
         # are created by playing these samples faster (with linear interpolation):
-        if f > 1:
-            f2 = int(len(new) / f)
-            new2 = np.zeros(f2)
-            for x in range(f2):
-                q = x * f - int(x * f)
-                new2[x] = (1 - q) * new[int(x * f)] + q * new[int(x * f) + 1]
-        else:
-            new2 = new
+        positions = np.arange(0, len(new), factor)
+        new2 = np.interp(positions, np.arange(len(new)), new)
         raw_note = len(new2)
 
-        dec_ind = int(leg_stac * b)
+        dec_ind = max(0, min(raw_note, int(leg_stac * b)))
         new2[dec_ind:] *= np.exp(-np.arange(raw_note - dec_ind) / 3000.0)
-        new2[-1001:] *= np.arange(1, -0.001, -0.001)
+        fade_length = min(1001, raw_note)
+        new2[-fade_length:] *= np.linspace(1.0, 0.0, fade_length)
         if snd_len > raw_note:
-            print("Warning, note too long:", snd_len, raw_note)
+            if progress_reporter.enabled:
+                print("Warning, note too long:", snd_len, raw_note)
             snd_len = raw_note
         data[pos : pos + snd_len] += new2[:snd_len] * vol
 
@@ -202,12 +196,15 @@ def make_wav(
     ##########################################################################
     # Write to output file (in WAV format)
     ##########################################################################
-    data = data / (data.max() * 2.0)
+    peak = np.max(np.abs(data))
+    if peak:
+        data = data / (peak * 2.0)
     out_len = int(2.0 * 48000.0 + ex_pos + 0.5)
-    data2 = np.zeros(out_len, np.short)
+    data2 = np.zeros(out_len, dtype="<i2")
     data2[:] = 32000.0 * data[:out_len]
-    f.writeframes(data2.tobytes())
-    f.close()
+    with wave.open(fn, "wb") as output:
+        output.setparams((1, 2, 48000, 0, "NONE", "Not Compressed"))
+        output.writeframes(data2.tobytes())
     progress_reporter.finish()
 
 
